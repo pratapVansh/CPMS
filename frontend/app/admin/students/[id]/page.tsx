@@ -2,13 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getUser, logout, User } from '@/lib/auth';
-import { apiGet } from '@/lib/api';
 import Link from 'next/link';
+import { getUser, User } from '@/lib/auth';
+import { apiGet, apiPatch } from '@/lib/api';
+import { ArrowLeft, Eye, FileText } from 'lucide-react';
+import {
+  InstitutionalNavbar,
+  AppFooter,
+  PageContainer,
+  Card,
+  DataTable,
+  StatusBadge,
+  EmptyState,
+  PageLoading,
+  Button,
+  Grid,
+} from '@/components/common';
 
 interface Application {
   id: string;
-  status: string;
+  status: 'APPLIED' | 'SHORTLISTED' | 'SELECTED' | 'REJECTED';
   createdAt: string;
   company: {
     id: string;
@@ -23,6 +36,7 @@ interface StudentProfile {
   email: string;
   cgpa: number | null;
   branch: string | null;
+  status: 'ACTIVE' | 'DISABLED';
   createdAt: string;
   hasResume: boolean;
   hasMarksheet: boolean;
@@ -31,7 +45,7 @@ interface StudentProfile {
   applications: Application[];
 }
 
-export default function AdminStudentDetailPage() {
+export default function StudentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const studentId = params.id as string;
@@ -39,7 +53,6 @@ export default function AdminStudentDetailPage() {
   const [user, setUser] = useState<User | null>(null);
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     const currentUser = getUser();
@@ -52,19 +65,30 @@ export default function AdminStudentDetailPage() {
   }, [router, studentId]);
 
   const fetchStudent = async () => {
-    setLoading(true);
-    setError('');
-
-    const response = await apiGet<{ student: StudentProfile }>(
-      `/admin/students/${studentId}`
-    );
-
+    const response = await apiGet<{ student: StudentProfile }>(`/admin/students/${studentId}`);
     if (response.success && response.data) {
       setStudent(response.data.student);
-    } else {
-      setError(response.error?.message || 'Failed to load student');
     }
     setLoading(false);
+  };
+
+  const handleToggleStatus = async () => {
+    if (!student) return;
+
+    const newStatus = student.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+    const response = await apiPatch(`/admin/students/${studentId}/status`, { status: newStatus });
+
+    if (response.success) {
+      fetchStudent();
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   const openDocument = (url: string | null) => {
@@ -73,221 +97,169 @@ export default function AdminStudentDetailPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'APPLIED':
-        return 'bg-blue-100 text-blue-700';
-      case 'SHORTLISTED':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'SELECTED':
-        return 'bg-green-100 text-green-700';
-      case 'REJECTED':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
+  if (!user) return <PageLoading />;
 
-  if (!user) return null;
+  const applicationColumns = [
+    {
+      key: 'company',
+      header: 'Company',
+      render: (app: Application) => (
+        <Link href={`/admin/company/${app.company.id}`} className="font-medium text-blue-600 hover:underline">
+          {app.company.name}
+        </Link>
+      ),
+    },
+    { key: 'role', header: 'Role', render: (app: Application) => app.company.roleOffered },
+    {
+      key: 'appliedOn',
+      header: 'Applied On',
+      render: (app: Application) => formatDate(app.createdAt),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (app: Application) => <StatusBadge status={app.status.toLowerCase()} />,
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/admin/students"
-              className="text-gray-600 hover:text-gray-900"
-            >
-              ← Back to Students
-            </Link>
-            <h1 className="text-xl font-bold text-gray-900">Student Details</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">{user.name}</span>
-            <button
-              onClick={() => logout()}
-              className="text-red-600 hover:text-red-700"
-            >
-              Logout
-            </button>
-          </div>
+    <div className="min-h-screen bg-gray-100">
+      <InstitutionalNavbar user={user} role="admin" />
+      <div className="pt-16 md:pt-16">
+      <PageContainer>
+        <div className="mb-6">
+          <Link
+            href="/admin/students"
+            className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Students
+          </Link>
         </div>
-      </header>
-
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
 
         {loading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : student ? (
-          <div className="space-y-6">
-            {/* Profile Info Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Profile Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-500">Name</label>
-                  <p className="text-gray-900 font-medium">{student.name}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500">Email</label>
-                  <p className="text-gray-900">{student.email}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500">Branch</label>
-                  <p className="text-gray-900">{student.branch || 'Not set'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500">CGPA</label>
-                  <p className="text-gray-900 font-medium">
-                    {student.cgpa?.toFixed(2) || 'Not set'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500">Registered</label>
-                  <p className="text-gray-900">
-                    {new Date(student.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Documents Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Documents</h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Resume */}
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-2">Resume</h3>
-                  {student.hasResume ? (
-                    <div>
-                      <span className="inline-flex items-center text-green-600 text-sm mb-3">
-                        <svg
-                          className="w-4 h-4 mr-1"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        Uploaded
-                      </span>
-                      <button
-                        onClick={() => openDocument(student.resumeUrl)}
-                        className="block w-full mt-2 bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 text-center"
-                      >
-                        View Resume
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-gray-500 text-sm">Not uploaded</span>
-                  )}
-                </div>
-
-                {/* Marksheet */}
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-2">Marksheet</h3>
-                  {student.hasMarksheet ? (
-                    <div>
-                      <span className="inline-flex items-center text-green-600 text-sm mb-3">
-                        <svg
-                          className="w-4 h-4 mr-1"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        Uploaded
-                      </span>
-                      <button
-                        onClick={() => openDocument(student.marksheetUrl)}
-                        className="block w-full mt-2 bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 text-center"
-                      >
-                        View Marksheet
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-gray-500 text-sm">Not uploaded</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Applications Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Applications</h2>
-
-              {student.applications.length === 0 ? (
-                <p className="text-gray-500">No applications yet.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">
-                          Company
-                        </th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">
-                          Role
-                        </th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">
-                          Status
-                        </th>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">
-                          Applied On
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {student.applications.map((app) => (
-                        <tr key={app.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">
-                            {app.company.name}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {app.company.roleOffered}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getStatusColor(
-                                app.status
-                              )}`}
-                            >
-                              {app.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {new Date(app.createdAt).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
+          <Card>
+            <p className="text-center text-gray-500 py-4">Loading student details...</p>
+          </Card>
+        ) : !student ? (
+          <EmptyState type="error" title="Student not found" />
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            Student not found
-          </div>
+          <>
+            {/* Student Info */}
+            <Card className="mb-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">{student.name}</h1>
+                  <p className="text-gray-600">{student.email}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <StatusBadge status={student.status.toLowerCase()} />
+                  <Button
+                    variant={student.status === 'ACTIVE' ? 'danger' : 'success'}
+                    size="sm"
+                    onClick={handleToggleStatus}
+                  >
+                    {student.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-gray-200">
+                <div>
+                  <p className="text-xs text-gray-500">Branch</p>
+                  <p className="font-medium">{student.branch || 'Not set'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">CPI / CGPA</p>
+                  <p className="font-medium">{student.cgpa?.toFixed(2) || 'Not set'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Registered On</p>
+                  <p className="font-medium">{formatDate(student.createdAt)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Total Applications</p>
+                  <p className="font-medium">{student.applications.length}</p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Documents */}
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Documents</h2>
+            <Grid cols={2} className="mb-6">
+              <Card>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-50 rounded flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Resume</p>
+                      <p className="text-sm text-gray-500">
+                        {student.hasResume ? 'Uploaded' : 'Not uploaded'}
+                      </p>
+                    </div>
+                  </div>
+                  {student.hasResume && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => openDocument(student.resumeUrl)}
+                      leftIcon={<Eye className="w-4 h-4" />}
+                    >
+                      View
+                    </Button>
+                  )}
+                </div>
+              </Card>
+
+              <Card>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-50 rounded flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Marksheet</p>
+                      <p className="text-sm text-gray-500">
+                        {student.hasMarksheet ? 'Uploaded' : 'Not uploaded'}
+                      </p>
+                    </div>
+                  </div>
+                  {student.hasMarksheet && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => openDocument(student.marksheetUrl)}
+                      leftIcon={<Eye className="w-4 h-4" />}
+                    >
+                      View
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            </Grid>
+
+            {/* Applications */}
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Applications</h2>
+            {student.applications.length === 0 ? (
+              <EmptyState
+                type="no-applications"
+                description="This student hasn't applied to any drives yet."
+              />
+            ) : (
+              <DataTable
+                columns={applicationColumns}
+                data={student.applications}
+                keyExtractor={(app) => app.id}
+              />
+            )}
+          </>
         )}
-      </main>
+      </PageContainer>
+
+      <AppFooter />
+      </div>
     </div>
   );
 }

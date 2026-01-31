@@ -2,14 +2,32 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, logout, User } from '@/lib/auth';
+import { getUser, User } from '@/lib/auth';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
-import Link from 'next/link';
+import { Plus, Shield, Clock, Trash2 } from 'lucide-react';
+import {
+  InstitutionalNavbar,
+  AppFooter,
+  PageContainer,
+  PageTitle,
+  Card,
+  DataTable,
+  StatusBadge,
+  EmptyState,
+  PageLoading,
+  Button,
+  Input,
+  FormGroup,
+  FormRow,
+  Grid,
+  SectionTitle,
+} from '@/components/common';
 
 interface Admin {
   id: string;
   name: string;
   email: string;
+  role: 'ADMIN' | 'SUPER_ADMIN';
   status: 'ACTIVE' | 'DISABLED';
   createdAt: string;
 }
@@ -17,21 +35,29 @@ interface Admin {
 interface AuditLog {
   id: string;
   action: string;
-  target: string;
+  target: string | null;
   createdAt: string;
-  user: { name: string; email: string };
+  user: {
+    name: string;
+    email: string;
+  };
 }
 
-export default function SuperAdminDashboard() {
+export default function SuperAdminPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [admins, setAdmins] = useState<Admin[]>([]);
-  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
 
   useEffect(() => {
     const currentUser = getUser();
@@ -44,17 +70,16 @@ export default function SuperAdminDashboard() {
   }, [router]);
 
   const fetchData = async () => {
-    setLoading(true);
     const [adminsRes, logsRes] = await Promise.all([
       apiGet<{ admins: Admin[] }>('/superadmin/admins'),
-      apiGet<{ logs: AuditLog[] }>('/superadmin/audit-logs?limit=20'),
+      apiGet<{ logs: AuditLog[] }>('/superadmin/audit-logs?limit=10'),
     ]);
 
     if (adminsRes.success && adminsRes.data) {
       setAdmins(adminsRes.data.admins);
     }
     if (logsRes.success && logsRes.data) {
-      setLogs(logsRes.data.logs);
+      setAuditLogs(logsRes.data.logs);
     }
     setLoading(false);
   };
@@ -63,230 +88,226 @@ export default function SuperAdminDashboard() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setCreating(true);
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
+    const response = await apiPost('/superadmin/admins', formData);
 
-    const res = await apiPost('/superadmin/admin', formData);
-
-    if (res.success) {
+    if (response.success) {
       setSuccess('Admin created successfully!');
       setFormData({ name: '', email: '', password: '' });
       setShowCreateForm(false);
       fetchData();
     } else {
-      setError(res.error?.message || 'Failed to create admin');
+      setError(response.error?.message || 'Failed to create admin');
     }
+    setCreating(false);
   };
 
-  const handleToggleStatus = async (id: string) => {
-    const res = await apiPatch(`/superadmin/admin/${id}/disable`, {});
-    if (res.success) {
+  const handleToggleStatus = async (adminId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+    const response = await apiPatch(`/superadmin/admins/${adminId}/status`, { status: newStatus });
+
+    if (response.success) {
       fetchData();
     }
   };
 
-  const handleDeleteAdmin = async (id: string) => {
+  const handleDeleteAdmin = async (adminId: string) => {
     if (!confirm('Are you sure you want to delete this admin?')) return;
 
-    const res = await apiDelete(`/superadmin/admin/${id}`);
-    if (res.success) {
+    const response = await apiDelete(`/superadmin/admins/${adminId}`);
+    if (response.success) {
       fetchData();
     }
   };
 
-  if (!user) return null;
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  if (!user) return <PageLoading />;
+
+  const adminColumns = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (admin: Admin) => <span className="font-medium">{admin.name}</span>,
+    },
+    { key: 'email', header: 'Email' },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (admin: Admin) => (
+        <span className={admin.role === 'SUPER_ADMIN' ? 'text-purple-600 font-medium' : ''}>
+          {admin.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (admin: Admin) => <StatusBadge status={admin.status.toLowerCase()} />,
+    },
+    {
+      key: 'createdAt',
+      header: 'Created',
+      render: (admin: Admin) => formatDate(admin.createdAt),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (admin: Admin) =>
+        admin.role !== 'SUPER_ADMIN' ? (
+          <div className="flex gap-2">
+            <Button
+              variant={admin.status === 'ACTIVE' ? 'danger' : 'success'}
+              size="sm"
+              onClick={() => handleToggleStatus(admin.id, admin.status)}
+            >
+              {admin.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => handleDeleteAdmin(admin.id)}>
+              <Trash2 className="w-4 h-4 text-red-600" />
+            </Button>
+          </div>
+        ) : (
+          <span className="text-xs text-gray-400">Protected</span>
+        ),
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-indigo-700 text-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-bold">Super Admin Panel</h1>
-            <p className="text-indigo-200 text-sm">Manage administrators</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/admin/dashboard" className="text-indigo-200 hover:text-white">
-              Admin Dashboard →
-            </Link>
-            <span className="text-indigo-200">|</span>
-            <span>{user.name}</span>
-            <button onClick={() => logout()} className="bg-indigo-600 px-3 py-1 rounded hover:bg-indigo-500">
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gray-100">
+      <InstitutionalNavbar user={user} role="superadmin" />
+      <div className="pt-16 md:pt-16">
+      <PageContainer>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          <div className="mb-4 p-3 bg-red-50 border border-red-300 text-red-700 rounded text-sm">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+          <div className="mb-4 p-3 bg-green-50 border border-green-300 text-green-700 rounded text-sm">
             {success}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Admin Management */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold">Administrators</h2>
-                <button
-                  onClick={() => setShowCreateForm(!showCreateForm)}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
-                >
-                  {showCreateForm ? 'Cancel' : '+ Create Admin'}
-                </button>
-              </div>
+        {loading ? (
+          <Card>
+            <p className="text-center text-gray-500 py-4">Loading...</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Admin Management */}
+              <PageTitle
+                description="Create, manage and monitor admin accounts"
+                action={
+                  <Button
+                    onClick={() => setShowCreateForm(!showCreateForm)}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Add Admin
+                  </Button>
+                }
+              >
+                Super Admin Dashboard
+              </PageTitle>
 
               {showCreateForm && (
-                <form onSubmit={handleCreateAdmin} className="mb-6 p-4 bg-gray-50 rounded-lg">
-                  <h3 className="font-medium mb-4">Create New Admin</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Full Name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="input"
-                      required
-                    />
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="input"
-                      required
-                    />
-                    <input
-                      type="password"
-                      placeholder="Password (min 8 chars)"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="input"
-                      required
-                    />
+                <Card className="mb-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">Create New Admin</h3>
+                  <form onSubmit={handleCreateAdmin}>
+                    <FormGroup>
+                      <FormRow>
+                        <Input
+                          label="Name"
+                          value={formData.name}
+                          onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                          required
+                        />
+                        <Input
+                          label="Email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
+                          required
+                        />
+                      </FormRow>
+                      <Input
+                        label="Password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
+                        required
+                      />
+                      <div className="flex gap-3">
+                        <Button type="submit" loading={creating}>
+                          Create Admin
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setShowCreateForm(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </FormGroup>
+                  </form>
+                </Card>
+              )}
+
+              {admins.length === 0 ? (
+                <EmptyState type="no-data" description="No admins have been created yet." />
+              ) : (
+                <DataTable columns={adminColumns} data={admins} keyExtractor={(a) => a.id} />
+              )}
+            </div>
+
+            {/* Sidebar - Audit Logs */}
+            <div>
+              <SectionTitle>Recent Activity</SectionTitle>
+              <Card padding="none">
+                {auditLogs.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">No recent activity</div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {auditLogs.map((log) => (
+                      <div key={log.id} className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{log.action}</p>
+                            {log.target && (
+                              <p className="text-xs text-gray-500 truncate">{log.target}</p>
+                            )}
+                            <p className="text-xs text-gray-400 mt-1">
+                              {log.user.name} • {formatDate(log.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <button type="submit" className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                    Create Admin
-                  </button>
-                </form>
-              )}
-
-              {loading ? (
-                <p className="text-gray-500">Loading...</p>
-              ) : admins.length === 0 ? (
-                <p className="text-gray-500">No admins created yet.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Name</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Email</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Status</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Created</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {admins.map((admin) => (
-                        <tr key={admin.id}>
-                          <td className="px-4 py-3 font-medium">{admin.name}</td>
-                          <td className="px-4 py-3 text-gray-600">{admin.email}</td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-medium ${
-                                admin.status === 'ACTIVE'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-red-100 text-red-700'
-                              }`}
-                            >
-                              {admin.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-gray-500 text-sm">
-                            {new Date(admin.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleToggleStatus(admin.id)}
-                                className={`px-2 py-1 rounded text-xs ${
-                                  admin.status === 'ACTIVE'
-                                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                }`}
-                              >
-                                {admin.status === 'ACTIVE' ? 'Disable' : 'Enable'}
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAdmin(admin.id)}
-                                className="px-2 py-1 rounded text-xs bg-red-100 text-red-700 hover:bg-red-200"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                )}
+              </Card>
             </div>
           </div>
+        )}
+      </PageContainer>
 
-          {/* Audit Logs */}
-          <div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
-              {logs.length === 0 ? (
-                <p className="text-gray-500 text-sm">No activity yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {logs.map((log) => (
-                    <div key={log.id} className="border-l-2 border-indigo-200 pl-3 py-1">
-                      <p className="text-sm font-medium">{log.action}</p>
-                      <p className="text-xs text-gray-500">
-                        by {log.user.name} • {new Date(log.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-500 text-sm">Total Admins</h3>
-            <p className="text-3xl font-bold text-indigo-600">{admins.length}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-500 text-sm">Active Admins</h3>
-            <p className="text-3xl font-bold text-green-600">
-              {admins.filter((a) => a.status === 'ACTIVE').length}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-500 text-sm">Disabled Admins</h3>
-            <p className="text-3xl font-bold text-red-600">
-              {admins.filter((a) => a.status === 'DISABLED').length}
-            </p>
-          </div>
-        </div>
-      </main>
+      <AppFooter />
+      </div>
     </div>
   );
 }

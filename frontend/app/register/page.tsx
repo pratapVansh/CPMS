@@ -3,13 +3,27 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { setAccessToken } from '@/lib/api';
-import { saveUser, User } from '@/lib/auth';
+import Cookies from 'js-cookie';
+import { GraduationCap, AlertCircle, Upload, Loader2 } from 'lucide-react';
+import { setAccessToken, saveUser, User } from '@/lib/auth';
+import { institution } from '@/lib/design-system';
+import { Card, Button, Input, Select, FormGroup, FormRow, Checkbox, AppFooter } from '@/components/common';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+const BRANCHES = [
+  { value: 'Computer Science', label: 'Computer Science' },
+  { value: 'Petroleum Engineering', label: 'Petroleum Engineering' },
+  { value: 'Chemical Engineering', label: 'Chemical Engineering' },
+  { value: 'Mechanical Engineering', label: 'Mechanical Engineering' },
+  { value: 'Electrical Engineering', label: 'Electrical Engineering' },
+  { value: 'Civil Engineering', label: 'Civil Engineering' },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,16 +32,15 @@ export default function RegisterPage() {
     cgpa: '',
     branch: '',
   });
+
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [marksheetFile, setMarksheetFile] = useState<File | null>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const marksheetInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (
@@ -37,13 +50,11 @@ export default function RegisterPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (file.type !== 'application/pdf') {
       setError('Only PDF files are allowed');
       return;
     }
 
-    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('File size must be less than 5MB');
       return;
@@ -74,7 +85,6 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Create FormData for multipart upload
       const submitData = new FormData();
       submitData.append('name', formData.name);
       submitData.append('email', formData.email);
@@ -95,6 +105,7 @@ export default function RegisterPage() {
       if (data.success && data.data) {
         setAccessToken(data.data.accessToken);
         saveUser(data.data.user as User);
+        Cookies.set('accessToken', data.data.accessToken, { expires: 7 });
         router.push('/student/dashboard');
       } else {
         setError(data.error?.message || 'Registration failed');
@@ -107,208 +118,168 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="card max-w-md w-full">
-        <h1 className="text-2xl font-bold text-center mb-6">Create Account</h1>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              value={formData.name}
-              onChange={handleChange}
-              className="input"
-              placeholder="Enter your name"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="input"
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="cgpa" className="block text-sm font-medium text-gray-700 mb-1">
-              CGPA
-            </label>
-            <input
-              id="cgpa"
-              name="cgpa"
-              type="number"
-              step="0.01"
-              min="0"
-              max="10"
-              value={formData.cgpa}
-              onChange={handleChange}
-              className="input"
-              placeholder="Enter your CGPA"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
-              Branch
-            </label>
-            <input
-              id="branch"
-              name="branch"
-              type="text"
-              value={formData.branch}
-              onChange={handleChange}
-              className="input"
-              placeholder="e.g., Computer Science"
-            />
-          </div>
-
-          {/* Resume Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Resume (PDF only, max 5MB)
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                ref={resumeInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={(e) => handleFileChange(e, 'resume')}
-                className="hidden"
-                id="resume-upload"
-              />
-              <label
-                htmlFor="resume-upload"
-                className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 text-sm"
-              >
-                {resumeFile ? (
-                  <span className="text-green-600 truncate">{resumeFile.name}</span>
-                ) : (
-                  <span className="text-gray-500">Choose Resume PDF</span>
-                )}
-              </label>
-              {resumeFile && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setResumeFile(null);
-                    if (resumeInputRef.current) resumeInputRef.current.value = '';
-                  }}
-                  className="text-red-500 hover:text-red-600 text-sm"
-                >
-                  Remove
-                </button>
-              )}
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-300">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-700 rounded flex items-center justify-center">
+              <GraduationCap className="w-6 h-6 text-white" />
             </div>
-          </div>
-
-          {/* Marksheet Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Latest Semester Marksheet (PDF only, max 5MB)
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                ref={marksheetInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={(e) => handleFileChange(e, 'marksheet')}
-                className="hidden"
-                id="marksheet-upload"
-              />
-              <label
-                htmlFor="marksheet-upload"
-                className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 text-sm"
-              >
-                {marksheetFile ? (
-                  <span className="text-green-600 truncate">{marksheetFile.name}</span>
-                ) : (
-                  <span className="text-gray-500">Choose Marksheet PDF</span>
-                )}
-              </label>
-              {marksheetFile && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMarksheetFile(null);
-                    if (marksheetInputRef.current) marksheetInputRef.current.value = '';
-                  }}
-                  className="text-red-500 hover:text-red-600 text-sm"
-                >
-                  Remove
-                </button>
-              )}
+            <div>
+              <h1 className="text-sm font-semibold text-gray-900">{institution.name}</h1>
+              <p className="text-xs text-gray-600">{institution.systemFullName}</p>
             </div>
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleChange}
-              className="input"
-              placeholder="Min 8 characters"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-              Confirm Password
-            </label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="input"
-              placeholder="Confirm your password"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary w-full disabled:opacity-50"
-          >
-            {loading ? 'Creating account...' : 'Register'}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-gray-600">
-          Already have an account?{' '}
-          <Link href="/login" className="text-primary-600 hover:underline">
-            Login
           </Link>
-        </p>
-      </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-lg">
+          <Card>
+            <div className="text-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Student Registration</h2>
+              <p className="text-sm text-gray-500 mt-1">Create your account to get started</p>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 p-3 mb-6 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <FormGroup>
+                <Input
+                  label="Full Name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter your full name"
+                  required
+                />
+
+                <Input
+                  label="Email Address"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="you@rgipt.ac.in"
+                  required
+                />
+
+                <FormRow>
+                  <Input
+                    label="Password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Min 8 characters"
+                    required
+                  />
+                  <Input
+                    label="Confirm Password"
+                    name="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Re-enter password"
+                    required
+                  />
+                </FormRow>
+
+                <FormRow>
+                  <Input
+                    label="CPI / CGPA"
+                    name="cgpa"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="10"
+                    value={formData.cgpa}
+                    onChange={handleChange}
+                    placeholder="e.g., 8.5"
+                  />
+                  <Select
+                    label="Branch"
+                    name="branch"
+                    value={formData.branch}
+                    onChange={handleChange}
+                    options={BRANCHES}
+                    placeholder="Select your branch"
+                  />
+                </FormRow>
+
+                {/* Document Uploads */}
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-3">
+                    Documents (Optional - PDF only, max 5MB)
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <input
+                        ref={resumeInputRef}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={(e) => handleFileChange(e, 'resume')}
+                        className="hidden"
+                        id="resume-upload"
+                      />
+                      <label
+                        htmlFor="resume-upload"
+                        className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded cursor-pointer hover:bg-gray-50 text-sm"
+                      >
+                        <Upload className="w-4 h-4 text-gray-400" />
+                        <span className={resumeFile ? 'text-green-600' : 'text-gray-600'}>
+                          {resumeFile ? 'Resume ✓' : 'Upload Resume'}
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <input
+                        ref={marksheetInputRef}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={(e) => handleFileChange(e, 'marksheet')}
+                        className="hidden"
+                        id="marksheet-upload"
+                      />
+                      <label
+                        htmlFor="marksheet-upload"
+                        className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded cursor-pointer hover:bg-gray-50 text-sm"
+                      >
+                        <Upload className="w-4 h-4 text-gray-400" />
+                        <span className={marksheetFile ? 'text-green-600' : 'text-gray-600'}>
+                          {marksheetFile ? 'Marksheet ✓' : 'Upload Marksheet'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <Button type="submit" loading={loading} fullWidth className="mt-4">
+                  Create Account
+                </Button>
+              </FormGroup>
+            </form>
+
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <p className="text-center text-sm text-gray-600">
+                Already have an account?{' '}
+                <Link href="/login" className="text-blue-600 hover:underline font-medium">
+                  Sign in here
+                </Link>
+              </p>
+            </div>
+          </Card>
+        </div>
+      </main>
+
+      <AppFooter />
     </div>
   );
 }

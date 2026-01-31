@@ -2,9 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getUser, logout, User } from '@/lib/auth';
-import { apiGet, apiPost } from '@/lib/api';
 import Link from 'next/link';
+import { getUser, User } from '@/lib/auth';
+import { apiGet, apiPost } from '@/lib/api';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  InstitutionalNavbar,
+  AppFooter,
+  PageContainer,
+  PageTitle,
+  Card,
+  DataTable,
+  StatusBadge,
+  EmptyState,
+  PageLoading,
+  Button,
+} from '@/components/common';
 
 interface Application {
   id: string;
@@ -44,7 +57,6 @@ export default function ApplicationsPage() {
     }
     setUser(currentUser);
 
-    // Check if applying to a company
     const applyTo = searchParams.get('apply');
     if (applyTo) {
       handleApply(applyTo);
@@ -76,7 +88,6 @@ export default function ApplicationsPage() {
     if (response.success) {
       setMessage({ type: 'success', text: 'Application submitted successfully!' });
       fetchApplications(1);
-      // Remove query param
       router.replace('/student/applications');
     } else {
       setMessage({ type: 'error', text: response.error?.message || 'Failed to apply' });
@@ -85,76 +96,55 @@ export default function ApplicationsPage() {
     setApplying(false);
   };
 
-  const getStatusBadge = (status: Application['status']) => {
-    const styles = {
-      APPLIED: 'bg-blue-100 text-blue-800',
-      SHORTLISTED: 'bg-yellow-100 text-yellow-800',
-      SELECTED: 'bg-green-100 text-green-800',
-      REJECTED: 'bg-red-100 text-red-800',
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
-        {status}
-      </span>
-    );
-  };
+  if (!user) return <PageLoading />;
 
-  if (!user) return null;
+  const columns = [
+    {
+      key: 'sno',
+      header: 'S.No.',
+      render: (_: Application, index: number) =>
+        pagination ? (pagination.page - 1) * pagination.limit + index + 1 : index + 1,
+    },
+    {
+      key: 'company',
+      header: 'Company',
+      render: (app: Application) => <span className="font-medium">{app.company.name}</span>,
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (app: Application) => app.company.roleOffered,
+    },
+    {
+      key: 'appliedOn',
+      header: 'Applied On',
+      render: (app: Application) =>
+        new Date(app.createdAt).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (app: Application) => <StatusBadge status={app.status.toLowerCase()} />,
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">Student Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {user.name}</span>
-            <button
-              onClick={() => logout()}
-              className="text-red-600 hover:text-red-700"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-6">
-            <Link
-              href="/student/dashboard"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/student/applications"
-              className="py-3 border-b-2 border-primary-500 text-primary-600 font-medium"
-            >
-              My Applications
-            </Link>
-            <Link
-              href="/student/profile"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Profile
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">My Applications</h2>
+    <div className="min-h-screen bg-gray-100">
+      <InstitutionalNavbar user={user} role="student" />
+      <div className="pt-16 md:pt-16">
+      <PageContainer>
+        <PageTitle description="Track the status of all your placement applications">My Applications</PageTitle>
 
         {message && (
           <div
-            className={`mb-4 p-3 rounded-lg ${
+            className={`mb-4 p-3 rounded border text-sm ${
               message.type === 'success'
-                ? 'bg-green-50 text-green-700 border border-green-200'
-                : 'bg-red-50 text-red-700 border border-red-200'
+                ? 'bg-green-50 text-green-700 border-green-300'
+                : 'bg-red-50 text-red-700 border-red-300'
             }`}
           >
             {message.text}
@@ -162,72 +152,91 @@ export default function ApplicationsPage() {
         )}
 
         {applying && (
-          <div className="mb-4 p-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg">
+          <div className="mb-4 p-3 bg-blue-50 text-blue-700 border border-blue-300 rounded text-sm">
             Submitting application...
           </div>
         )}
 
         {loading ? (
-          <div className="text-center py-8">Loading...</div>
+          <Card>
+            <p className="text-center text-gray-500 py-4">Loading applications...</p>
+          </Card>
         ) : applications.length === 0 ? (
-          <div className="card text-center py-8 text-gray-500">
-            No applications yet.{' '}
-            <Link href="/student/dashboard" className="text-primary-600 hover:underline">
-              Browse eligible companies
-            </Link>
-          </div>
+          <EmptyState
+            type="no-applications"
+            action={{ label: 'Browse Eligible Companies', href: '/student/dashboard' }}
+          />
         ) : (
           <>
-            <div className="card overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Company</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Role</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Applied On</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {applications.map((app) => (
-                    <tr key={app.id}>
-                      <td className="px-4 py-4 font-medium text-gray-900">{app.company.name}</td>
-                      <td className="px-4 py-4 text-gray-600">{app.company.roleOffered}</td>
-                      <td className="px-4 py-4 text-gray-600">
-                        {new Date(app.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-4">{getStatusBadge(app.status)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={columns}
+              data={applications}
+              keyExtractor={(app) => app.id}
+            />
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="mt-4 flex justify-center gap-2">
-                <button
-                  onClick={() => fetchApplications(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className="btn btn-secondary disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <span className="px-4 py-2 text-gray-600">
-                  Page {pagination.page} of {pagination.totalPages}
-                </span>
-                <button
-                  onClick={() => fetchApplications(pagination.page + 1)}
-                  disabled={!pagination.hasMore}
-                  className="btn btn-secondary disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
+              <Card padding="sm" className="mt-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-gray-600">
+                    Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
+                    {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} applications
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => fetchApplications(pagination.page - 1)}
+                      disabled={pagination.page === 1}
+                      leftIcon={<ChevronLeft className="w-4 h-4" />}
+                    >
+                      Previous
+                    </Button>
+                    <span className="px-3 text-sm text-gray-600">
+                      Page {pagination.page} of {pagination.totalPages}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => fetchApplications(pagination.page + 1)}
+                      disabled={!pagination.hasMore}
+                      rightIcon={<ChevronRight className="w-4 h-4" />}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             )}
           </>
         )}
-      </main>
+
+        {/* Status Legend */}
+        <Card className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Application Status Guide</h3>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <StatusBadge status="applied" />
+              <span className="text-gray-600">Application submitted, awaiting review</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusBadge status="shortlisted" />
+              <span className="text-gray-600">Selected for next round</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusBadge status="selected" />
+              <span className="text-gray-600">Offer received</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusBadge status="rejected" />
+              <span className="text-gray-600">Not selected</span>
+            </div>
+          </div>
+        </Card>
+      </PageContainer>
+
+      <AppFooter />
+      </div>
     </div>
   );
 }

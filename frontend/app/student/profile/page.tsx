@@ -2,9 +2,22 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, logout, User } from '@/lib/auth';
+import { getUser, User } from '@/lib/auth';
 import { apiGet, apiPatch, apiDelete, apiUploadFile } from '@/lib/api';
-import Link from 'next/link';
+import { Upload, Trash2, Eye, Loader2 } from 'lucide-react';
+import {
+  InstitutionalNavbar,
+  AppFooter,
+  PageContainer,
+  PageTitle,
+  Card,
+  CardHeader,
+  InfoRow,
+  Button,
+  Input,
+  PageLoading,
+  StatusBadge,
+} from '@/components/common';
 
 interface StudentProfile {
   id: string;
@@ -80,13 +93,11 @@ export default function StudentProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (file.type !== 'application/pdf') {
       setError('Only PDF files are allowed');
       return;
     }
 
-    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('File size must be less than 5MB');
       return;
@@ -111,7 +122,6 @@ export default function StudentProfilePage() {
       setError(response.error?.message || `Failed to upload ${type}`);
     }
 
-    // Reset the input
     if (type === 'resume' && resumeInputRef.current) {
       resumeInputRef.current.value = '';
     }
@@ -141,343 +151,261 @@ export default function StudentProfilePage() {
     }
   };
 
-  if (!user) return null;
+  if (!user) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">My Profile</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {user.name}</span>
-            <button
-              onClick={() => logout()}
-              className="text-red-600 hover:text-red-700"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-100">
+      <InstitutionalNavbar user={user} role="student" />
+      <div className="pt-16 md:pt-16">
+      <PageContainer>
+        <div className="max-w-4xl mx-auto">
+          <PageTitle description="Manage your personal information and documents">My Profile</PageTitle>
 
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-6">
-            <Link
-              href="/student/dashboard"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/student/applications"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              My Applications
-            </Link>
-            <Link
-              href="/student/profile"
-              className="py-3 border-b-2 border-primary-500 text-primary-600 font-medium"
-            >
-              Profile
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg">
-            {success}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : profile ? (
-          <div className="space-y-6">
-            {/* Profile Info Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Profile Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-500">Name</label>
-                  <p className="text-gray-900 font-medium">{profile.name}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500">Email</label>
-                  <p className="text-gray-900">{profile.email}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500">Branch</label>
-                  <p className="text-gray-900">{profile.branch || 'Not set'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500">Member since</label>
-                  <p className="text-gray-900">
-                    {new Date(profile.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-300 text-red-700 rounded text-sm">
+              {error}
             </div>
-
-            {/* CPI Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">CPI / CGPA</h2>
-                {!isEditingCgpa && (
-                  <button
-                    onClick={() => setIsEditingCgpa(true)}
-                    className="text-primary-600 hover:text-primary-700 text-sm"
-                  >
-                    Edit
-                  </button>
-                )}
-              </div>
-
-              {isEditingCgpa ? (
-                <div className="flex items-center gap-4">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="10"
-                    value={cgpa}
-                    onChange={(e) => setCgpa(e.target.value)}
-                    className="input w-32"
-                    placeholder="0.00"
-                  />
-                  <button
-                    onClick={handleUpdateCgpa}
-                    className="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditingCgpa(false);
-                      setCgpa(profile.cgpa?.toString() || '');
-                    }}
-                    className="text-gray-600 hover:text-gray-700"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <p className="text-3xl font-bold text-primary-600">
-                  {profile.cgpa?.toFixed(2) || 'Not set'}
-                </p>
-              )}
+          )}
+          {success && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-300 text-green-700 rounded text-sm">
+              {success}
             </div>
+          )}
 
-            {/* Documents Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Documents</h2>
-              <p className="text-sm text-gray-500 mb-6">
-                Upload your resume and latest semester marksheet (PDF only, max 5MB)
-              </p>
-
-              <div className="space-y-6">
-                {/* Resume */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start">
+          {loading ? (
+            <Card>
+              <p className="text-center text-gray-500 py-4">Loading profile...</p>
+            </Card>
+          ) : profile ? (
+            <div className="space-y-6">
+              {/* Profile Info Card */}
+              <Card padding="none">
+                <div className="p-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <h3 className="font-medium text-gray-900">Resume</h3>
-                      <p className="text-sm text-gray-500">
-                        {profile.hasResume ? (
-                          <span className="text-green-600">✓ Uploaded</span>
-                        ) : (
-                          <span className="text-orange-600">Not uploaded</span>
-                        )}
+                      <label className="block text-sm text-gray-500 mb-1">Name</label>
+                      <p className="text-gray-900 font-medium">{profile.name}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Email</label>
+                      <p className="text-gray-900">{profile.email}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Branch</label>
+                      <p className="text-gray-900">{profile.branch || 'Not set'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Member Since</label>
+                      <p className="text-gray-900">
+                        {new Date(profile.createdAt).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                  </div>
+                </div>
+              </Card>
+
+              {/* CPI Card */}
+              <Card padding="none">
+                <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-gray-900">CPI / CGPA</h2>
+                  {!isEditingCgpa && (
+                    <button
+                      onClick={() => setIsEditingCgpa(true)}
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+                <div className="p-4">
+                  {isEditingCgpa ? (
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="10"
+                        value={cgpa}
+                        onChange={(e) => setCgpa(e.target.value)}
+                        placeholder="0.00"
+                        className="w-32"
+                      />
+                      <Button onClick={handleUpdateCgpa} size="sm">
+                        Save
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsEditingCgpa(false);
+                          setCgpa(profile.cgpa?.toString() || '');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-3xl font-bold text-blue-600">
+                      {profile.cgpa?.toFixed(2) || 'Not set'}
+                    </p>
+                  )}
+                </div>
+              </Card>
+
+              {/* Documents Card */}
+              <Card padding="none">
+                <div className="p-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">Documents</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Upload your resume and latest semester marksheet (PDF only, max 5MB)
+                  </p>
+                </div>
+                <div className="p-4 space-y-4">
+                  {/* Resume */}
+                  <div className="border border-gray-200 rounded p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium text-gray-900">Resume</h3>
+                        <p className="text-sm mt-1">
+                          {profile.hasResume ? (
+                            <StatusBadge status="uploaded">Uploaded</StatusBadge>
+                          ) : (
+                            <StatusBadge status="not_uploaded">Not uploaded</StatusBadge>
+                          )}
+                        </p>
+                      </div>
                       {profile.hasResume && (
-                        <>
+                        <div className="flex gap-2">
                           <button
                             onClick={() => openDocument(profile.resumeUrl)}
-                            className="text-primary-600 hover:text-primary-700 text-sm"
+                            className="flex items-center gap-1 text-blue-600 hover:underline text-sm"
                           >
+                            <Eye className="w-4 h-4" />
                             View
                           </button>
                           <button
                             onClick={() => handleDeleteDocument('resume')}
-                            className="text-red-600 hover:text-red-700 text-sm"
+                            className="flex items-center gap-1 text-red-600 hover:underline text-sm"
                           >
+                            <Trash2 className="w-4 h-4" />
                             Delete
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
-                  </div>
-                  <div className="mt-4">
-                    <input
-                      ref={resumeInputRef}
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      onChange={(e) => handleFileSelect(e, 'resume')}
-                      className="hidden"
-                      id="resume-upload"
-                    />
-                    <label
-                      htmlFor="resume-upload"
-                      className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 ${
-                        uploading === 'resume' ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                    >
-                      {uploading === 'resume' ? (
-                        <>
-                          <svg
-                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-4 h-4 mr-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                            />
-                          </svg>
-                          {profile.hasResume ? 'Replace Resume' : 'Upload Resume'}
-                        </>
-                      )}
-                    </label>
-                  </div>
-                </div>
-
-                {/* Marksheet */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Latest Semester Marksheet</h3>
-                      <p className="text-sm text-gray-500">
-                        {profile.hasMarksheet ? (
-                          <span className="text-green-600">✓ Uploaded</span>
+                    <div className="mt-3">
+                      <input
+                        ref={resumeInputRef}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={(e) => handleFileSelect(e, 'resume')}
+                        className="hidden"
+                        id="resume-upload"
+                        disabled={uploading === 'resume'}
+                      />
+                      <label
+                        htmlFor="resume-upload"
+                        className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded cursor-pointer hover:bg-gray-50 text-sm ${
+                          uploading === 'resume' ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {uploading === 'resume' ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Uploading...
+                          </>
                         ) : (
-                          <span className="text-orange-600">Not uploaded</span>
+                          <>
+                            <Upload className="w-4 h-4" />
+                            {profile.hasResume ? 'Replace Resume' : 'Upload Resume'}
+                          </>
                         )}
-                      </p>
+                      </label>
                     </div>
-                    <div className="flex gap-2">
+                  </div>
+
+                  {/* Marksheet */}
+                  <div className="border border-gray-200 rounded p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium text-gray-900">Latest Semester Marksheet</h3>
+                        <p className="text-sm mt-1">
+                          {profile.hasMarksheet ? (
+                            <StatusBadge status="uploaded">Uploaded</StatusBadge>
+                          ) : (
+                            <StatusBadge status="not_uploaded">Not uploaded</StatusBadge>
+                          )}
+                        </p>
+                      </div>
                       {profile.hasMarksheet && (
-                        <>
+                        <div className="flex gap-2">
                           <button
                             onClick={() => openDocument(profile.marksheetUrl)}
-                            className="text-primary-600 hover:text-primary-700 text-sm"
+                            className="flex items-center gap-1 text-blue-600 hover:underline text-sm"
                           >
+                            <Eye className="w-4 h-4" />
                             View
                           </button>
                           <button
                             onClick={() => handleDeleteDocument('marksheet')}
-                            className="text-red-600 hover:text-red-700 text-sm"
+                            className="flex items-center gap-1 text-red-600 hover:underline text-sm"
                           >
+                            <Trash2 className="w-4 h-4" />
                             Delete
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
-                  </div>
-                  <div className="mt-4">
-                    <input
-                      ref={marksheetInputRef}
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      onChange={(e) => handleFileSelect(e, 'marksheet')}
-                      className="hidden"
-                      id="marksheet-upload"
-                    />
-                    <label
-                      htmlFor="marksheet-upload"
-                      className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 ${
-                        uploading === 'marksheet' ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                    >
-                      {uploading === 'marksheet' ? (
-                        <>
-                          <svg
-                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-4 h-4 mr-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                            />
-                          </svg>
-                          {profile.hasMarksheet ? 'Replace Marksheet' : 'Upload Marksheet'}
-                        </>
-                      )}
-                    </label>
+                    <div className="mt-3">
+                      <input
+                        ref={marksheetInputRef}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={(e) => handleFileSelect(e, 'marksheet')}
+                        className="hidden"
+                        id="marksheet-upload"
+                        disabled={uploading === 'marksheet'}
+                      />
+                      <label
+                        htmlFor="marksheet-upload"
+                        className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded cursor-pointer hover:bg-gray-50 text-sm ${
+                          uploading === 'marksheet' ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {uploading === 'marksheet' ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4" />
+                            {profile.hasMarksheet ? 'Replace Marksheet' : 'Upload Marksheet'}
+                          </>
+                        )}
+                      </label>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            Failed to load profile
-          </div>
-        )}
-      </main>
+          ) : (
+            <Card>
+              <p className="text-center text-gray-500 py-4">Failed to load profile</p>
+            </Card>
+          )}
+        </div>
+      </PageContainer>
+
+      <AppFooter />
+      </div>
     </div>
   );
 }

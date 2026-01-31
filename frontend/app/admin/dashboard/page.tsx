@@ -2,9 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, logout, User } from '@/lib/auth';
-import { apiGet } from '@/lib/api';
 import Link from 'next/link';
+import { getUser, User } from '@/lib/auth';
+import { apiGet } from '@/lib/api';
+import { Plus, Users, Building2, Briefcase, TrendingUp, FileText, CheckCircle, Star, XCircle } from 'lucide-react';
+import {
+  InstitutionalNavbar,
+  AppFooter,
+  PageContainer,
+  PageTitle,
+  Card,
+  DataTable,
+  StatusBadge,
+  EmptyState,
+  PageLoading,
+  LinkButton,
+  SectionTitle,
+  StatCard,
+} from '@/components/common';
 
 interface Stats {
   total: number;
@@ -21,15 +36,30 @@ interface Company {
   name: string;
   roleOffered: string;
   deadline: string;
+  eligibleBranches?: string[];
+  status?: 'OPEN' | 'CLOSED';
   _count: {
     applications: number;
   };
+}
+
+interface DashboardStats {
+  totalDrives: number;
+  totalStudents: number;
+  totalApplications: number;
+  ongoingDrives: number;
 }
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    totalDrives: 0,
+    totalStudents: 0,
+    totalApplications: 0,
+    ongoingDrives: 0,
+  });
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,146 +76,203 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     const [statsRes, companiesRes] = await Promise.all([
       apiGet<{ stats: Stats }>('/admin/stats'),
-      apiGet<{ companies: Company[] }>('/admin/companies?limit=5'),
+      apiGet<{ companies: Company[] }>('/admin/companies?limit=10'),
     ]);
 
     if (statsRes.success && statsRes.data) {
       setStats(statsRes.data.stats);
+      setDashboardStats((prev) => ({
+        ...prev,
+        totalApplications: statsRes.data!.stats.total,
+      }));
     }
     if (companiesRes.success && companiesRes.data) {
-      setCompanies(companiesRes.data.companies);
+      const allCompanies = companiesRes.data.companies;
+      setCompanies(allCompanies);
+
+      const now = new Date();
+      const ongoing = allCompanies.filter((c) => new Date(c.deadline) >= now).length;
+      setDashboardStats((prev) => ({
+        ...prev,
+        totalDrives: allCompanies.length,
+        ongoingDrives: ongoing,
+      }));
     }
     setLoading(false);
   };
 
-  if (!user) return null;
+  const isDeadlinePassed = (deadline: string) => {
+    return new Date(deadline) < new Date();
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  if (!user) return <PageLoading />;
+
+  const columns = [
+    {
+      key: 'name',
+      header: 'Company Name',
+      render: (company: Company) => <span className="font-medium">{company.name}</span>,
+    },
+    { key: 'roleOffered', header: 'Role' },
+    {
+      key: 'deadline',
+      header: 'Deadline',
+      render: (company: Company) => formatDate(company.deadline),
+    },
+    {
+      key: 'applications',
+      header: 'Applications',
+      className: 'text-center',
+      render: (company: Company) => company._count.applications,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'text-center',
+      render: (company: Company) => (
+        <StatusBadge status={isDeadlinePassed(company.deadline) ? 'closed' : 'open'} />
+      ),
+    },
+    {
+      key: 'action',
+      header: '',
+      className: 'text-right',
+      render: (company: Company) => (
+        <Link href={`/admin/company/${company.id}`} className="text-blue-600 hover:underline text-sm">
+          View →
+        </Link>
+      ),
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {user.name}</span>
-            <button
-              onClick={() => logout()}
-              className="text-red-600 hover:text-red-700"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-6">
-            <Link
-              href="/admin/dashboard"
-              className="py-3 border-b-2 border-primary-500 text-primary-600 font-medium"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/admin/create-company"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Create Drive
-            </Link>
-            <Link
-              href="/admin/students"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Students
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gray-100">
+      <InstitutionalNavbar user={user} role="admin" />
+      <div className="pt-16 md:pt-16">
+      <PageContainer>
         {loading ? (
-          <div className="text-center py-8">Loading...</div>
+          <Card>
+            <p className="text-center text-gray-500 py-4">Loading dashboard...</p>
+          </Card>
         ) : (
           <>
-            {/* Stats */}
+            <PageTitle description="Overview of placement activities and statistics">Admin Dashboard</PageTitle>
+
+            {/* Summary Cards - Using StatCard for consistency */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <StatCard
+                title="Total Drives"
+                value={dashboardStats.totalDrives}
+                icon={<Building2 className="w-5 h-5" />}
+                color="blue"
+                subtitle="Placement drives created"
+              />
+              <StatCard
+                title="Ongoing Drives"
+                value={dashboardStats.ongoingDrives}
+                icon={<TrendingUp className="w-5 h-5" />}
+                color="green"
+                subtitle="Active with open deadlines"
+              />
+              <StatCard
+                title="Total Students"
+                value={dashboardStats.totalStudents || '—'}
+                icon={<Users className="w-5 h-5" />}
+                color="purple"
+                subtitle="Registered on platform"
+              />
+              <StatCard
+                title="Total Applications"
+                value={dashboardStats.totalApplications}
+                icon={<FileText className="w-5 h-5" />}
+                color="gray"
+                subtitle="Submissions received"
+              />
+            </div>
+
+            {/* Application Status Breakdown */}
             {stats && (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                <div className="card text-center">
-                  <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-                  <p className="text-sm text-gray-500">Total Applications</p>
-                </div>
-                <div className="card text-center">
-                  <p className="text-3xl font-bold text-blue-600">{stats.byStatus.applied}</p>
-                  <p className="text-sm text-gray-500">Applied</p>
-                </div>
-                <div className="card text-center">
-                  <p className="text-3xl font-bold text-yellow-600">{stats.byStatus.shortlisted}</p>
-                  <p className="text-sm text-gray-500">Shortlisted</p>
-                </div>
-                <div className="card text-center">
-                  <p className="text-3xl font-bold text-green-600">{stats.byStatus.selected}</p>
-                  <p className="text-sm text-gray-500">Selected</p>
-                </div>
-                <div className="card text-center">
-                  <p className="text-3xl font-bold text-red-600">{stats.byStatus.rejected}</p>
-                  <p className="text-sm text-gray-500">Rejected</p>
+              <div className="mb-8">
+                <SectionTitle>Application Status Breakdown</SectionTitle>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard
+                    title="Applied"
+                    value={stats.byStatus.applied}
+                    icon={<FileText className="w-5 h-5" />}
+                    color="blue"
+                  />
+                  <StatCard
+                    title="Shortlisted"
+                    value={stats.byStatus.shortlisted}
+                    icon={<Star className="w-5 h-5" />}
+                    color="yellow"
+                  />
+                  <StatCard
+                    title="Selected"
+                    value={stats.byStatus.selected}
+                    icon={<CheckCircle className="w-5 h-5" />}
+                    color="green"
+                  />
+                  <StatCard
+                    title="Rejected"
+                    value={stats.byStatus.rejected}
+                    icon={<XCircle className="w-5 h-5" />}
+                    color="red"
+                  />
                 </div>
               </div>
             )}
 
-            {/* Recent Companies */}
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Recent Placement Drives</h2>
-              <Link href="/admin/create-company" className="btn btn-primary">
-                + Create Drive
-              </Link>
+            {/* Quick Actions */}
+            <div className="mb-8">
+              <SectionTitle>Quick Actions</SectionTitle>
+              <Card>
+                <div className="flex flex-wrap gap-3">
+                  <LinkButton href="/admin/create-company" leftIcon={<Plus className="w-4 h-4" />}>
+                    Create New Drive
+                  </LinkButton>
+                  <LinkButton href="/admin/students" variant="secondary" leftIcon={<Users className="w-4 h-4" />}>
+                    View All Students
+                  </LinkButton>
+                  <LinkButton href="/admin/drives" variant="secondary" leftIcon={<Building2 className="w-4 h-4" />}>
+                    View All Drives
+                  </LinkButton>
+                </div>
+              </Card>
             </div>
 
+            {/* Recent Placement Drives */}
+            <SectionTitle>Recent Placement Drives</SectionTitle>
             {companies.length === 0 ? (
-              <div className="card text-center py-8 text-gray-500">
-                No placement drives yet.
-              </div>
+              <EmptyState
+                type="no-companies"
+                action={{ label: 'Create your first drive', href: '/admin/create-company' }}
+              />
             ) : (
-              <div className="card overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Company</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Role</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Deadline</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Applications</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {companies.map((company) => (
-                      <tr key={company.id}>
-                        <td className="px-4 py-4 font-medium text-gray-900">{company.name}</td>
-                        <td className="px-4 py-4 text-gray-600">{company.roleOffered}</td>
-                        <td className="px-4 py-4 text-gray-600">
-                          {new Date(company.deadline).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-4 text-gray-600">{company._count.applications}</td>
-                        <td className="px-4 py-4">
-                          <Link
-                            href={`/admin/company/${company.id}`}
-                            className="text-primary-600 hover:underline"
-                          >
-                            View Applicants
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <DataTable columns={columns} data={companies.slice(0, 5)} keyExtractor={(company) => company.id} />
+            )}
+
+            {companies.length > 5 && (
+              <div className="mt-4 text-center">
+                <Link href="/admin/drives" className="text-blue-600 hover:underline text-sm">
+                  View all drives →
+                </Link>
               </div>
             )}
           </>
         )}
-      </main>
+      </PageContainer>
+
+      <AppFooter />
+      </div>
     </div>
   );
 }

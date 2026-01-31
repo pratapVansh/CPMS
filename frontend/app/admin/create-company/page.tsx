@@ -1,23 +1,48 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, logout, User } from '@/lib/auth';
+import { getUser, User } from '@/lib/auth';
 import { apiPost } from '@/lib/api';
-import Link from 'next/link';
+import {
+  InstitutionalNavbar,
+  AppFooter,
+  PageContainer,
+  PageTitle,
+  Card,
+  Button,
+  Input,
+  Textarea,
+  Select,
+  FormGroup,
+  FormRow,
+  Checkbox,
+  PageLoading,
+} from '@/components/common';
+
+const BRANCHES = [
+  'Computer Science',
+  'Petroleum Engineering',
+  'Chemical Engineering',
+  'Mechanical Engineering',
+  'Electrical Engineering',
+  'Civil Engineering',
+];
 
 export default function CreateCompanyPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     roleOffered: '',
+    description: '',
     minCgpa: '',
-    allowedBranches: '',
+    package: '',
     deadline: '',
+    allowedBranches: [] as string[],
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const currentUser = getUser();
@@ -28,8 +53,18 @@ export default function CreateCompanyPage() {
     setUser(currentUser);
   }, [router]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleBranchToggle = (branch: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      allowedBranches: prev.allowedBranches.includes(branch)
+        ? prev.allowedBranches.filter((b) => b !== branch)
+        : [...prev.allowedBranches, branch],
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,183 +72,142 @@ export default function CreateCompanyPage() {
     setError('');
     setLoading(true);
 
-    const branches = formData.allowedBranches
-      .split(',')
-      .map((b) => b.trim())
-      .filter((b) => b.length > 0);
-
-    const response = await apiPost('/admin/company', {
+    const response = await apiPost('/admin/companies', {
       name: formData.name,
       roleOffered: formData.roleOffered,
-      minCgpa: parseFloat(formData.minCgpa),
-      allowedBranches: branches,
-      deadline: new Date(formData.deadline).toISOString(),
+      description: formData.description || undefined,
+      minCgpa: formData.minCgpa ? parseFloat(formData.minCgpa) : undefined,
+      package: formData.package || undefined,
+      deadline: formData.deadline,
+      allowedBranches: formData.allowedBranches.length > 0 ? formData.allowedBranches : undefined,
     });
+
+    setLoading(false);
 
     if (response.success) {
       router.push('/admin/dashboard');
     } else {
-      setError(response.error?.message || 'Failed to create company');
+      setError(response.error?.message || 'Failed to create placement drive');
     }
-
-    setLoading(false);
   };
 
-  if (!user) return null;
+  if (!user) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {user.name}</span>
-            <button
-              onClick={() => logout()}
-              className="text-red-600 hover:text-red-700"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-6">
-            <Link
-              href="/admin/dashboard"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/admin/create-company"
-              className="py-3 border-b-2 border-primary-500 text-primary-600 font-medium"
-            >
-              Create Drive
-            </Link>
-            <Link
-              href="/admin/students"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Students
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Content */}
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        <div className="card">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Placement Drive</h2>
+    <div className="min-h-screen bg-gray-100">
+      <InstitutionalNavbar user={user} role="admin" />
+      <div className="pt-16 md:pt-16">
+      <PageContainer>
+        <div className="max-w-2xl mx-auto">
+          <PageTitle description="Add a new company placement drive">Create Placement Drive</PageTitle>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+            <div className="mb-4 p-3 bg-red-50 border border-red-300 text-red-700 rounded text-sm">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Company Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                value={formData.name}
-                onChange={handleChange}
-                className="input"
-                placeholder="e.g., Google"
-                required
-              />
-            </div>
+          <Card>
+            <form onSubmit={handleSubmit}>
+              <FormGroup>
+                <Input
+                  label="Company Name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g., Google, Microsoft, Reliance"
+                />
 
-            <div>
-              <label htmlFor="roleOffered" className="block text-sm font-medium text-gray-700 mb-1">
-                Role Offered
-              </label>
-              <input
-                id="roleOffered"
-                name="roleOffered"
-                type="text"
-                value={formData.roleOffered}
-                onChange={handleChange}
-                className="input"
-                placeholder="e.g., Software Engineer"
-                required
-              />
-            </div>
+                <Input
+                  label="Role Offered"
+                  name="roleOffered"
+                  value={formData.roleOffered}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g., Software Engineer, Data Analyst"
+                />
 
-            <div>
-              <label htmlFor="minCgpa" className="block text-sm font-medium text-gray-700 mb-1">
-                Minimum CGPA
-              </label>
-              <input
-                id="minCgpa"
-                name="minCgpa"
-                type="number"
-                step="0.01"
-                min="0"
-                max="10"
-                value={formData.minCgpa}
-                onChange={handleChange}
-                className="input"
-                placeholder="e.g., 7.5"
-                required
-              />
-            </div>
+                <Textarea
+                  label="Job Description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows={4}
+                  placeholder="Describe the role, responsibilities, and requirements..."
+                />
 
-            <div>
-              <label htmlFor="allowedBranches" className="block text-sm font-medium text-gray-700 mb-1">
-                Allowed Branches
-              </label>
-              <input
-                id="allowedBranches"
-                name="allowedBranches"
-                type="text"
-                value={formData.allowedBranches}
-                onChange={handleChange}
-                className="input"
-                placeholder="e.g., CSE, ECE, IT (comma separated, leave empty for all)"
-              />
-              <p className="mt-1 text-sm text-gray-500">Leave empty to allow all branches</p>
-            </div>
+                <FormRow>
+                  <Input
+                    label="Minimum CPI"
+                    name="minCgpa"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="10"
+                    value={formData.minCgpa}
+                    onChange={handleChange}
+                    placeholder="e.g., 7.0"
+                  />
 
-            <div>
-              <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-1">
-                Application Deadline
-              </label>
-              <input
-                id="deadline"
-                name="deadline"
-                type="datetime-local"
-                value={formData.deadline}
-                onChange={handleChange}
-                className="input"
-                required
-              />
-            </div>
+                  <Input
+                    label="Package (LPA)"
+                    name="package"
+                    value={formData.package}
+                    onChange={handleChange}
+                    placeholder="e.g., 12-15 LPA"
+                  />
+                </FormRow>
 
-            <div className="flex gap-4 pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary flex-1 disabled:opacity-50"
-              >
-                {loading ? 'Creating...' : 'Create Drive'}
-              </button>
-              <Link href="/admin/dashboard" className="btn btn-secondary">
-                Cancel
-              </Link>
-            </div>
-          </form>
+                <Input
+                  label="Application Deadline"
+                  name="deadline"
+                  type="date"
+                  value={formData.deadline}
+                  onChange={handleChange}
+                  required
+                />
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Eligible Branches
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Leave unchecked to allow all branches
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {BRANCHES.map((branch) => (
+                      <Checkbox
+                        key={branch}
+                        label={branch}
+                        checked={formData.allowedBranches.includes(branch)}
+                        onChange={() => handleBranchToggle(branch)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button type="submit" loading={loading} fullWidth>
+                    Create Placement Drive
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => router.back()}
+                    fullWidth
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </FormGroup>
+            </form>
+          </Card>
         </div>
-      </main>
+      </PageContainer>
+
+      <AppFooter />
+      </div>
     </div>
   );
 }

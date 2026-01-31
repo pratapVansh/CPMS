@@ -89,6 +89,24 @@ services:
       redis:
         condition: service_healthy
 
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api/v1}
+    container_name: cpms-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "${FRONTEND_PORT:-3001}:3001"
+    networks:
+      - cpms-network
+    depends_on:
+      - api
+
 networks:
   cpms-network:
     driver: bridge

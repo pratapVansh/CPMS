@@ -2,23 +2,37 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getUser, logout, User } from '@/lib/auth';
-import { apiGet, apiPut } from '@/lib/api';
 import Link from 'next/link';
-
-type ApplicationStatus = 'APPLIED' | 'SHORTLISTED' | 'REJECTED' | 'SELECTED';
+import { getUser, User } from '@/lib/auth';
+import { apiGet, apiPatch } from '@/lib/api';
+import { ArrowLeft, Calendar, Users, Briefcase, FileText, Star, CheckCircle, XCircle } from 'lucide-react';
+import {
+  InstitutionalNavbar,
+  AppFooter,
+  PageContainer,
+  PageTitle,
+  Card,
+  DataTable,
+  StatusBadge,
+  EmptyState,
+  PageLoading,
+  LinkButton,
+  Button,
+  Select,
+  Grid,
+  StatCard,
+} from '@/components/common';
 
 interface Application {
   id: string;
-  status: ApplicationStatus;
+  status: 'APPLIED' | 'SHORTLISTED' | 'SELECTED' | 'REJECTED';
   createdAt: string;
-  student: {
+  user: {
     id: string;
     name: string;
     email: string;
     cgpa: number | null;
     branch: string | null;
-    resume: { url: string } | null;
   };
 }
 
@@ -26,16 +40,24 @@ interface Company {
   id: string;
   name: string;
   roleOffered: string;
+  description: string | null;
+  minCgpa: number | null;
+  package: string | null;
+  deadline: string;
+  allowedBranches: string[];
+  applications: Application[];
+  _count: {
+    applications: number;
+  };
 }
 
-export default function CompanyApplicantsPage() {
+export default function CompanyDetailPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
 
   const [user, setUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
-  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
@@ -46,172 +68,187 @@ export default function CompanyApplicantsPage() {
       return;
     }
     setUser(currentUser);
-    fetchApplicants();
+    fetchCompany();
   }, [router, companyId]);
 
-  const fetchApplicants = async () => {
-    const response = await apiGet<{
-      company: Company;
-      applications: Application[];
-    }>(`/admin/company/${companyId}/applicants?limit=100`);
-
+  const fetchCompany = async () => {
+    const response = await apiGet<{ company: Company }>(`/admin/companies/${companyId}`);
     if (response.success && response.data) {
       setCompany(response.data.company);
-      setApplications(response.data.applications);
     }
     setLoading(false);
   };
 
-  const updateStatus = async (applicationId: string, status: ApplicationStatus) => {
+  const handleStatusChange = async (applicationId: string, newStatus: string) => {
     setUpdating(applicationId);
-    const response = await apiPut(`/admin/applications/${applicationId}/status`, { status });
-
+    const response = await apiPatch(`/admin/applications/${applicationId}/status`, {
+      status: newStatus,
+    });
     if (response.success) {
-      setApplications((prev) =>
-        prev.map((app) => (app.id === applicationId ? { ...app, status } : app))
-      );
+      fetchCompany();
     }
     setUpdating(null);
   };
 
-  const getStatusBadge = (status: ApplicationStatus) => {
-    const styles = {
-      APPLIED: 'bg-blue-100 text-blue-800',
-      SHORTLISTED: 'bg-yellow-100 text-yellow-800',
-      SELECTED: 'bg-green-100 text-green-800',
-      REJECTED: 'bg-red-100 text-red-800',
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
-        {status}
-      </span>
-    );
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
-  if (!user) return null;
+  if (!user) return <PageLoading />;
+
+  const columns = [
+    {
+      key: 'name',
+      header: 'Student Name',
+      render: (app: Application) => (
+        <Link href={`/admin/students/${app.user.id}`} className="font-medium text-blue-600 hover:underline">
+          {app.user.name}
+        </Link>
+      ),
+    },
+    { key: 'email', header: 'Email', render: (app: Application) => app.user.email },
+    {
+      key: 'branch',
+      header: 'Branch',
+      render: (app: Application) => app.user.branch || '—',
+    },
+    {
+      key: 'cgpa',
+      header: 'CPI',
+      render: (app: Application) => app.user.cgpa?.toFixed(2) || '—',
+    },
+    {
+      key: 'appliedOn',
+      header: 'Applied On',
+      render: (app: Application) => formatDate(app.createdAt),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (app: Application) => (
+        <select
+          value={app.status}
+          onChange={(e) => handleStatusChange(app.id, e.target.value)}
+          disabled={updating === app.id}
+          className="px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500"
+        >
+          <option value="APPLIED">Applied</option>
+          <option value="SHORTLISTED">Shortlisted</option>
+          <option value="SELECTED">Selected</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      ),
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {user.name}</span>
-            <button
-              onClick={() => logout()}
-              className="text-red-600 hover:text-red-700"
-            >
-              Logout
-            </button>
-          </div>
+    <div className="min-h-screen bg-gray-100">
+      <InstitutionalNavbar user={user} role="admin" />
+      <div className="pt-16 md:pt-16">
+      <PageContainer>
+        <div className="mb-6">
+          <Link
+            href="/admin/drives"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Drives
+          </Link>
         </div>
-      </header>
 
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-6">
-            <Link
-              href="/admin/dashboard"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/admin/create-company"
-              className="py-3 border-b-2 border-transparent text-gray-600 hover:text-gray-900"
-            >
-              Create Drive
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
         {loading ? (
-          <div className="text-center py-8">Loading...</div>
+          <Card>
+            <p className="text-center text-gray-500 py-4">Loading company details...</p>
+          </Card>
         ) : !company ? (
-          <div className="card text-center py-8 text-gray-500">Company not found</div>
+          <EmptyState type="error" title="Company not found" />
         ) : (
           <>
-            <div className="mb-6">
-              <Link href="/admin/dashboard" className="text-primary-600 hover:underline">
-                ← Back to Dashboard
-              </Link>
-            </div>
-
-            <div className="card mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{company.name}</h2>
-              <p className="text-gray-600">{company.roleOffered}</p>
-              <p className="text-sm text-gray-500 mt-2">
-                {applications.length} applicant{applications.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-
-            {applications.length === 0 ? (
-              <div className="card text-center py-8 text-gray-500">
-                No applications yet.
+            {/* Company Info */}
+            <Card className="mb-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">{company.name}</h1>
+                  <p className="text-gray-600 mt-1">{company.roleOffered}</p>
+                </div>
+                <StatusBadge status={new Date(company.deadline) < new Date() ? 'closed' : 'open'} />
               </div>
+
+              {company.description && (
+                <p className="text-sm text-gray-600 mt-4">{company.description}</p>
+              )}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-gray-200">
+                <div>
+                  <p className="text-xs text-gray-500">Minimum CPI</p>
+                  <p className="font-medium">{company.minCgpa?.toFixed(1) || 'Not specified'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Package</p>
+                  <p className="font-medium">{company.package || 'Not specified'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Deadline</p>
+                  <p className="font-medium">{formatDate(company.deadline)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Eligible Branches</p>
+                  <p className="font-medium">
+                    {company.allowedBranches.length > 0 ? company.allowedBranches.join(', ') : 'All'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Application Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <StatCard
+                title="Total Applications"
+                value={company._count.applications}
+                icon={<FileText className="w-5 h-5" />}
+                color="blue"
+              />
+              <StatCard
+                title="Shortlisted"
+                value={company.applications.filter((a) => a.status === 'SHORTLISTED').length}
+                icon={<Star className="w-5 h-5" />}
+                color="yellow"
+              />
+              <StatCard
+                title="Selected"
+                value={company.applications.filter((a) => a.status === 'SELECTED').length}
+                icon={<CheckCircle className="w-5 h-5" />}
+                color="green"
+              />
+              <StatCard
+                title="Rejected"
+                value={company.applications.filter((a) => a.status === 'REJECTED').length}
+                icon={<XCircle className="w-5 h-5" />}
+                color="red"
+              />
+            </div>
+
+            {/* Applicants Table */}
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Applicants</h2>
+            {company.applications.length === 0 ? (
+              <EmptyState type="no-applications" description="No students have applied yet." />
             ) : (
-              <div className="card overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Student</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Email</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">CGPA</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Branch</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Resume</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Status</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {applications.map((app) => (
-                      <tr key={app.id}>
-                        <td className="px-4 py-4 font-medium text-gray-900">{app.student.name}</td>
-                        <td className="px-4 py-4 text-gray-600">{app.student.email}</td>
-                        <td className="px-4 py-4 text-gray-600">{app.student.cgpa ?? 'N/A'}</td>
-                        <td className="px-4 py-4 text-gray-600">{app.student.branch ?? 'N/A'}</td>
-                        <td className="px-4 py-4">
-                          {app.student.resume ? (
-                            <a
-                              href={app.student.resume.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary-600 hover:underline"
-                            >
-                              View
-                            </a>
-                          ) : (
-                            <span className="text-gray-400">N/A</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4">{getStatusBadge(app.status)}</td>
-                        <td className="px-4 py-4">
-                          <select
-                            value={app.status}
-                            onChange={(e) => updateStatus(app.id, e.target.value as ApplicationStatus)}
-                            disabled={updating === app.id}
-                            className="text-sm border border-gray-300 rounded px-2 py-1"
-                          >
-                            <option value="APPLIED">Applied</option>
-                            <option value="SHORTLISTED">Shortlisted</option>
-                            <option value="SELECTED">Selected</option>
-                            <option value="REJECTED">Rejected</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={columns}
+                data={company.applications}
+                keyExtractor={(app) => app.id}
+              />
             )}
           </>
         )}
-      </main>
+      </PageContainer>
+
+      <AppFooter />
+      </div>
     </div>
   );
 }

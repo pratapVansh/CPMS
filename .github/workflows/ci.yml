@@ -79,6 +79,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: cpms-frontend:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
