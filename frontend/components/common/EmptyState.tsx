@@ -17,6 +17,7 @@ type EmptyStateType =
   | 'no-notices'
   | 'no-documents'
   | 'no-deadlines'
+  | 'info'
   | 'error';
 
 interface EmptyStateProps {
@@ -71,6 +72,11 @@ const defaultContent: Record<EmptyStateType, { icon: ReactNode; title: string; d
     icon: <Calendar className="w-12 h-12 text-gray-400" />,
     title: 'No upcoming deadlines',
     description: 'You have no pending application deadlines.',
+  },
+  'info': {
+    icon: <FileText className="w-12 h-12 text-blue-400" />,
+    title: 'No data',
+    description: 'There is no information to display.',
   },
   'error': {
     icon: <AlertCircle className="w-12 h-12 text-red-400" />,

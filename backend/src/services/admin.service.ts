@@ -6,13 +6,26 @@ import { invalidateEligibleCompaniesCache } from './student.service';
 
 export interface CreateCompanyInput {
   name: string;
-  roleOffered: string;
+  logoUrl?: string;
+  industry?: string;
+  website?: string;
   description?: string;
+  roleOffered: string;
+  jobDescription?: string;
+  ctc?: string;
+  location?: string;
+  jobType?: string;
   minCgpa?: number;
-  package?: string;
+  maxBacklogs?: number;
   allowedBranches: string[];
   allowedYears: number[];
+  driveDate?: Date;
   deadline: Date;
+  selectionRounds?: string;
+  requiredDocuments?: string;
+  specialInstructions?: string;
+  status?: string;
+  createdBy?: string;
 }
 
 export interface UpdateApplicationStatusInput {
@@ -26,7 +39,29 @@ export interface PaginationParams {
 }
 
 export async function createCompany(input: CreateCompanyInput) {
-  const { name, roleOffered, minCgpa, allowedBranches, allowedYears, deadline } = input;
+  const { 
+    name, 
+    logoUrl,
+    industry,
+    website,
+    description,
+    roleOffered, 
+    jobDescription,
+    ctc,
+    location,
+    jobType,
+    minCgpa, 
+    maxBacklogs,
+    allowedBranches, 
+    allowedYears, 
+    driveDate,
+    deadline,
+    selectionRounds,
+    requiredDocuments,
+    specialInstructions,
+    status,
+    createdBy,
+  } = input;
 
   // Validate deadline is in the future
   if (new Date(deadline) <= new Date()) {
@@ -36,11 +71,26 @@ export async function createCompany(input: CreateCompanyInput) {
   const company = await prisma.company.create({
     data: {
       name,
+      logoUrl,
+      industry,
+      website,
+      description,
       roleOffered,
-      minCgpa: minCgpa ?? 0,
+      jobDescription,
+      ctc,
+      location,
+      jobType: jobType ?? 'Full-time',
+      minCgpa,
+      maxBacklogs,
       allowedBranches,
       allowedYears,
+      driveDate,
       deadline: new Date(deadline),
+      selectionRounds,
+      requiredDocuments,
+      specialInstructions,
+      status: status ?? 'upcoming',
+      createdBy,
     },
   });
 
@@ -60,53 +110,76 @@ export async function getCompanyApplicants(
   // Check if company exists
   const company = await prisma.company.findUnique({
     where: { id: companyId },
+    include: {
+      applications: {
+        include: {
+          student: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              cgpa: true,
+              branch: true,
+              resume: {
+                select: {
+                  url: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
   });
 
   if (!company) {
     throw AppError.notFound('Company not found', 'COMPANY_NOT_FOUND');
   }
 
-  const [applications, total] = await Promise.all([
-    prisma.application.findMany({
-      where: { companyId },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            cgpa: true,
-            branch: true,
-            resume: {
-              select: {
-                url: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    }),
-    prisma.application.count({
-      where: { companyId },
-    }),
-  ]);
+  // Transform applications to match frontend expectation (user instead of student)
+  const transformedApplications = company.applications.map((app) => ({
+    id: app.id,
+    status: app.status,
+    createdAt: app.createdAt,
+    user: app.student,
+  }));
 
   return {
     company: {
       id: company.id,
       name: company.name,
+      logoUrl: company.logoUrl,
+      industry: company.industry,
+      website: company.website,
+      description: company.description,
       roleOffered: company.roleOffered,
+      jobDescription: company.jobDescription,
+      ctc: company.ctc,
+      location: company.location,
+      jobType: company.jobType,
+      minCgpa: company.minCgpa,
+      maxBacklogs: company.maxBacklogs,
+      allowedBranches: company.allowedBranches,
+      allowedYears: company.allowedYears,
+      driveDate: company.driveDate,
+      deadline: company.deadline,
+      selectionRounds: company.selectionRounds,
+      requiredDocuments: company.requiredDocuments,
+      specialInstructions: company.specialInstructions,
+      status: company.status,
+      applications: transformedApplications,
+      _count: {
+        applications: company.applications.length,
+      },
     },
-    applications,
+    applications: transformedApplications,
     pagination: {
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasMore: skip + applications.length < total,
+      total: company.applications.length,
+      totalPages: Math.ceil(company.applications.length / limit),
+      hasMore: false,
     },
   };
 }

@@ -78,18 +78,49 @@ model AuditLog {
 
 model Company {
   id              String        @id @default(uuid())
+  
+  // Company Details
   name            String
+  logoUrl         String?
+  industry        String?
+  website         String?
+  description     String?
+  
+  // Job Details
   roleOffered     String
-  minCgpa         Float
+  jobDescription  String?
+  ctc             String?
+  location        String?
+  jobType         String?       @default("Full-time")
+  
+  // Eligibility Criteria
+  minCgpa         Float?
+  maxBacklogs     Int?
   allowedBranches String[]
   allowedYears    Int[]
+  
+  // Drive Schedule
+  driveDate       DateTime?
   deadline        DateTime
+  selectionRounds String?
+  
+  // Additional Info
+  requiredDocuments String?
+  specialInstructions String?
+  
+  // Status
+  status          String        @default("upcoming") // upcoming, ongoing, completed, cancelled
+  
+  // Meta
+  createdBy       String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   applications    Application[]
 
   @@index([deadline])
+  @@index([status])
+  @@index([driveDate])
 }
 
 model Application {
