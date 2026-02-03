@@ -7,8 +7,11 @@ import { invalidateEligibleCompaniesCache } from './student.service';
 export interface CreateCompanyInput {
   name: string;
   roleOffered: string;
-  minCgpa: number;
+  description?: string;
+  minCgpa?: number;
+  package?: string;
   allowedBranches: string[];
+  allowedYears: number[];
   deadline: Date;
 }
 
@@ -23,7 +26,7 @@ export interface PaginationParams {
 }
 
 export async function createCompany(input: CreateCompanyInput) {
-  const { name, roleOffered, minCgpa, allowedBranches, deadline } = input;
+  const { name, roleOffered, minCgpa, allowedBranches, allowedYears, deadline } = input;
 
   // Validate deadline is in the future
   if (new Date(deadline) <= new Date()) {
@@ -34,8 +37,9 @@ export async function createCompany(input: CreateCompanyInput) {
     data: {
       name,
       roleOffered,
-      minCgpa,
+      minCgpa: minCgpa ?? 0,
       allowedBranches,
+      allowedYears,
       deadline: new Date(deadline),
     },
   });
@@ -208,16 +212,19 @@ export async function getApplicationStats() {
     shortlistedCount,
     selectedCount,
     rejectedCount,
+    totalStudents,
   ] = await Promise.all([
     prisma.application.count(),
     prisma.application.count({ where: { status: ApplicationStatus.APPLIED } }),
     prisma.application.count({ where: { status: ApplicationStatus.SHORTLISTED } }),
     prisma.application.count({ where: { status: ApplicationStatus.SELECTED } }),
     prisma.application.count({ where: { status: ApplicationStatus.REJECTED } }),
+    prisma.user.count({ where: { role: 'STUDENT' } }),
   ]);
 
   return {
     total: totalApplications,
+    totalStudents,
     byStatus: {
       applied: appliedCount,
       shortlisted: shortlistedCount,

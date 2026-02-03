@@ -25,6 +25,8 @@ interface StudentProfile {
   email: string;
   cgpa: number | null;
   branch: string | null;
+  currentYear: number | null;
+  currentSemester: number | null;
   createdAt: string;
   hasResume: boolean;
   hasMarksheet: boolean;
@@ -42,6 +44,9 @@ export default function StudentProfilePage() {
   const [success, setSuccess] = useState('');
   const [cgpa, setCgpa] = useState('');
   const [isEditingCgpa, setIsEditingCgpa] = useState(false);
+  const [currentYear, setCurrentYear] = useState('');
+  const [currentSemester, setCurrentSemester] = useState('');
+  const [isEditingYearSem, setIsEditingYearSem] = useState(false);
 
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const marksheetInputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +67,8 @@ export default function StudentProfilePage() {
     if (response.success && response.data) {
       setProfile(response.data.profile);
       setCgpa(response.data.profile.cgpa?.toString() || '');
+      setCurrentYear(response.data.profile.currentYear?.toString() || '');
+      setCurrentSemester(response.data.profile.currentSemester?.toString() || '');
     }
     setLoading(false);
   };
@@ -83,6 +90,37 @@ export default function StudentProfilePage() {
       fetchProfile();
     } else {
       setError(response.error?.message || 'Failed to update CPI');
+    }
+  };
+
+  const handleUpdateYearSem = async () => {
+    setError('');
+    setSuccess('');
+
+    const year = parseInt(currentYear);
+    const semester = parseInt(currentSemester);
+
+    if (currentYear && (isNaN(year) || year < 1 || year > 4)) {
+      setError('Year must be between 1 and 4');
+      return;
+    }
+
+    if (currentSemester && (isNaN(semester) || semester < 1 || semester > 8)) {
+      setError('Semester must be between 1 and 8');
+      return;
+    }
+
+    const response = await apiPatch('/profile/year-semester', {
+      currentYear: currentYear ? year : null,
+      currentSemester: currentSemester ? semester : null,
+    });
+
+    if (response.success) {
+      setSuccess('Year and semester updated successfully!');
+      setIsEditingYearSem(false);
+      fetchProfile();
+    } else {
+      setError(response.error?.message || 'Failed to update year and semester');
     }
   };
 
@@ -208,6 +246,92 @@ export default function StudentProfilePage() {
                       </p>
                     </div>
                   </div>
+                </div>
+              </Card>
+
+              {/* Year and Semester Card */}
+              <Card padding="none">
+                <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-gray-900">Academic Year & Semester</h2>
+                  {!isEditingYearSem && (
+                    <button
+                      onClick={() => setIsEditingYearSem(true)}
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+                <div className="p-4">
+                  {isEditingYearSem ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm text-gray-700 mb-1">Current Year</label>
+                          <select
+                            value={currentYear}
+                            onChange={(e) => setCurrentYear(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Select Year</option>
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-700 mb-1">Current Semester</label>
+                          <select
+                            value={currentSemester}
+                            onChange={(e) => setCurrentSemester(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Select Semester</option>
+                            <option value="1">Semester 1</option>
+                            <option value="2">Semester 2</option>
+                            <option value="3">Semester 3</option>
+                            <option value="4">Semester 4</option>
+                            <option value="5">Semester 5</option>
+                            <option value="6">Semester 6</option>
+                            <option value="7">Semester 7</option>
+                            <option value="8">Semester 8</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Button onClick={handleUpdateYearSem} size="sm">
+                          Save
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsEditingYearSem(false);
+                            setCurrentYear(profile?.currentYear?.toString() || '');
+                            setCurrentSemester(profile?.currentSemester?.toString() || '');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Current Year</p>
+                        <p className="text-xl font-semibold text-gray-900">
+                          {profile.currentYear ? `Year ${profile.currentYear}` : 'Not set'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Current Semester</p>
+                        <p className="text-xl font-semibold text-gray-900">
+                          {profile.currentSemester ? `Semester ${profile.currentSemester}` : 'Not set'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
 

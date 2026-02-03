@@ -153,7 +153,7 @@ export default function StudentDetailPage() {
                   <p className="text-gray-600">{student.email}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <StatusBadge status={student.status.toLowerCase()} />
+                  <StatusBadge status={student.status?.toLowerCase() || 'active'} />
                   <Button
                     variant={student.status === 'ACTIVE' ? 'danger' : 'success'}
                     size="sm"

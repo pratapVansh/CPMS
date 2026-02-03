@@ -16,6 +16,8 @@ export interface RegisterInput {
   password: string;
   cgpa?: number;
   branch?: string;
+  currentYear?: number;
+  currentSemester?: number;
 }
 
 export interface LoginInput {
@@ -39,7 +41,7 @@ export interface AuthResponse {
 }
 
 export async function register(input: RegisterInput): Promise<AuthResponse> {
-  const { name, email, password, cgpa, branch } = input;
+  const { name, email, password, cgpa, branch, currentYear, currentSemester } = input;
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -59,6 +61,8 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
       role: Role.STUDENT,
       cgpa,
       branch,
+      currentYear,
+      currentSemester,
     },
   });
 

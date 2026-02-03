@@ -19,6 +19,8 @@ const registerSchema = z.object({
   password: z.string().min(8).max(100),
   cgpa: z.string().transform((val) => val ? parseFloat(val) : undefined).optional(),
   branch: z.string().max(100).optional(),
+  currentYear: z.string().transform((val) => val ? parseInt(val) : undefined).optional(),
+  currentSemester: z.string().transform((val) => val ? parseInt(val) : undefined).optional(),
 });
 
 const loginSchema = z.object({
@@ -42,6 +44,8 @@ export async function register(req: Request, res: Response): Promise<void> {
     password: validatedData.password,
     cgpa: validatedData.cgpa,
     branch: validatedData.branch,
+    currentYear: validatedData.currentYear,
+    currentSemester: validatedData.currentSemester,
   });
 
   // Upload files to Cloudinary if provided

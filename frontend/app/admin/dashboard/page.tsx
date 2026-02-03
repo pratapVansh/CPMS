@@ -23,6 +23,7 @@ import {
 
 interface Stats {
   total: number;
+  totalStudents: number;
   byStatus: {
     applied: number;
     shortlisted: number;
@@ -84,6 +85,7 @@ export default function AdminDashboard() {
       setDashboardStats((prev) => ({
         ...prev,
         totalApplications: statsRes.data!.stats.total,
+        totalStudents: statsRes.data!.stats.totalStudents,
       }));
     }
     if (companiesRes.success && companiesRes.data) {
@@ -184,7 +186,7 @@ export default function AdminDashboard() {
               />
               <StatCard
                 title="Total Students"
-                value={dashboardStats.totalStudents || '—'}
+                value={dashboardStats.totalStudents}
                 icon={<Users className="w-5 h-5" />}
                 color="purple"
                 subtitle="Registered on platform"

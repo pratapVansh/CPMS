@@ -22,12 +22,16 @@ import {
 
 const BRANCHES = [
   'Computer Science',
+  'Information Technology',
+  'Computer Science and Design',
+  'Mathematics and Computing',
   'Petroleum Engineering',
   'Chemical Engineering',
   'Mechanical Engineering',
   'Electrical Engineering',
-  'Civil Engineering',
 ];
+
+const YEARS = [1, 2, 3, 4];
 
 export default function CreateCompanyPage() {
   const router = useRouter();
@@ -42,6 +46,7 @@ export default function CreateCompanyPage() {
     package: '',
     deadline: '',
     allowedBranches: [] as string[],
+    allowedYears: [] as number[],
   });
 
   useEffect(() => {
@@ -67,6 +72,15 @@ export default function CreateCompanyPage() {
     }));
   };
 
+  const handleYearToggle = (year: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      allowedYears: prev.allowedYears.includes(year)
+        ? prev.allowedYears.filter((y) => y !== year)
+        : [...prev.allowedYears, year],
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -80,6 +94,7 @@ export default function CreateCompanyPage() {
       package: formData.package || undefined,
       deadline: formData.deadline,
       allowedBranches: formData.allowedBranches.length > 0 ? formData.allowedBranches : undefined,
+      allowedYears: formData.allowedYears.length > 0 ? formData.allowedYears : undefined,
     });
 
     setLoading(false);
@@ -182,6 +197,25 @@ export default function CreateCompanyPage() {
                         label={branch}
                         checked={formData.allowedBranches.includes(branch)}
                         onChange={() => handleBranchToggle(branch)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Eligible Years
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Leave unchecked to allow all years
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {YEARS.map((year) => (
+                      <Checkbox
+                        key={year}
+                        label={`Year ${year}`}
+                        checked={formData.allowedYears.includes(year)}
+                        onChange={() => handleYearToggle(year)}
                       />
                     ))}
                   </div>

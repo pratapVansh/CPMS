@@ -10,9 +10,12 @@ import * as cloudinaryService from '../services/cloudinary.service';
 const createCompanySchema = z.object({
   name: z.string().min(2).max(200),
   roleOffered: z.string().min(2).max(200),
-  minCgpa: z.number().min(0).max(10),
-  allowedBranches: z.array(z.string()).default([]),
-  deadline: z.string().datetime(),
+  description: z.string().optional(),
+  minCgpa: z.number().min(0).max(10).optional(),
+  package: z.string().optional(),
+  allowedBranches: z.array(z.string()).optional().default([]),
+  allowedYears: z.array(z.number()).optional().default([]),
+  deadline: z.string().transform(date => new Date(date).toISOString()),
 });
 
 const updateStatusSchema = z.object({
@@ -32,7 +35,13 @@ export async function createCompany(req: Request, res: Response): Promise<void> 
   const validatedData = createCompanySchema.parse(req.body);
 
   const company = await adminService.createCompany({
-    ...validatedData,
+    name: validatedData.name,
+    roleOffered: validatedData.roleOffered,
+    description: validatedData.description,
+    minCgpa: validatedData.minCgpa,
+    package: validatedData.package,
+    allowedBranches: validatedData.allowedBranches ?? [],
+    allowedYears: validatedData.allowedYears ?? [],
     deadline: new Date(validatedData.deadline),
   });
 

@@ -9,6 +9,11 @@ const updateCpiSchema = z.object({
   cgpa: z.number().min(0).max(10),
 });
 
+const updateYearSemesterSchema = z.object({
+  currentYear: z.number().min(1).max(4).nullable(),
+  currentSemester: z.number().min(1).max(8).nullable(),
+});
+
 /**
  * Get student profile with documents
  */
@@ -25,6 +30,8 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
       email: true,
       cgpa: true,
       branch: true,
+      currentYear: true,
+      currentSemester: true,
       resumePublicId: true,
       resumeUrl: true,
       marksheetPublicId: true,
@@ -54,6 +61,8 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
         email: student.email,
         cgpa: student.cgpa,
         branch: student.branch,
+        currentYear: student.currentYear,
+        currentSemester: student.currentSemester,
         createdAt: student.createdAt,
         hasResume: !!student.resumePublicId,
         hasMarksheet: !!student.marksheetPublicId,
@@ -89,6 +98,39 @@ export async function updateCpi(req: Request, res: Response): Promise<void> {
       cgpa: updatedStudent.cgpa,
     },
     message: 'CPI updated successfully',
+  });
+}
+
+/**
+ * Update student year and semester
+ */
+export async function updateYearSemester(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { currentYear, currentSemester } = updateYearSemesterSchema.parse(req.body);
+
+  const updatedStudent = await prisma.user.update({
+    where: { id: req.user.userId },
+    data: { 
+      currentYear,
+      currentSemester,
+    },
+    select: {
+      id: true,
+      currentYear: true,
+      currentSemester: true,
+    },
+  });
+
+  res.json({
+    success: true,
+    data: {
+      currentYear: updatedStudent.currentYear,
+      currentSemester: updatedStudent.currentSemester,
+    },
+    message: 'Year and semester updated successfully',
   });
 }
 

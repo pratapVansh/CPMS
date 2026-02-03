@@ -9,9 +9,9 @@ router.use(requireAuth);
 router.use(requireAdmin);
 
 // Companies
-router.post('/company', adminController.createCompany);
+router.post('/companies', adminController.createCompany);
 router.get('/companies', adminController.getAllCompanies);
-router.get('/company/:id/applicants', adminController.getCompanyApplicants);
+router.get('/companies/:id/applicants', adminController.getCompanyApplicants);
 
 // Applications
 router.put('/applications/:id/status', adminController.updateApplicationStatus);

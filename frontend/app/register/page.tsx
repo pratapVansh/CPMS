@@ -13,11 +13,31 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 const BRANCHES = [
   { value: 'Computer Science', label: 'Computer Science' },
+  { value: 'Information Technology', label: 'Information Technology' },
+  { value: 'Computer Science and Design', label: 'Computer Science and Design' },
+  { value: 'Mathematics and Computing', label: 'Mathematics and Computing' },
   { value: 'Petroleum Engineering', label: 'Petroleum Engineering' },
   { value: 'Chemical Engineering', label: 'Chemical Engineering' },
   { value: 'Mechanical Engineering', label: 'Mechanical Engineering' },
   { value: 'Electrical Engineering', label: 'Electrical Engineering' },
-  { value: 'Civil Engineering', label: 'Civil Engineering' },
+];
+
+const YEARS = [
+  { value: '1', label: '1st Year' },
+  { value: '2', label: '2nd Year' },
+  { value: '3', label: '3rd Year' },
+  { value: '4', label: '4th Year' },
+];
+
+const SEMESTERS = [
+  { value: '1', label: 'Semester 1' },
+  { value: '2', label: 'Semester 2' },
+  { value: '3', label: 'Semester 3' },
+  { value: '4', label: 'Semester 4' },
+  { value: '5', label: 'Semester 5' },
+  { value: '6', label: 'Semester 6' },
+  { value: '7', label: 'Semester 7' },
+  { value: '8', label: 'Semester 8' },
 ];
 
 export default function RegisterPage() {
@@ -31,6 +51,8 @@ export default function RegisterPage() {
     confirmPassword: '',
     cgpa: '',
     branch: '',
+    currentYear: '',
+    currentSemester: '',
   });
 
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -91,6 +113,8 @@ export default function RegisterPage() {
       submitData.append('password', formData.password);
       if (formData.cgpa) submitData.append('cgpa', formData.cgpa);
       if (formData.branch) submitData.append('branch', formData.branch);
+      if (formData.currentYear) submitData.append('currentYear', formData.currentYear);
+      if (formData.currentSemester) submitData.append('currentSemester', formData.currentSemester);
       if (resumeFile) submitData.append('resume', resumeFile);
       if (marksheetFile) submitData.append('marksheet', marksheetFile);
 
@@ -211,6 +235,25 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     options={BRANCHES}
                     placeholder="Select your branch"
+                  />
+                </FormRow>
+
+                <FormRow>
+                  <Select
+                    label="Current Year"
+                    name="currentYear"
+                    value={formData.currentYear}
+                    onChange={handleChange}
+                    options={YEARS}
+                    placeholder="Select your year"
+                  />
+                  <Select
+                    label="Current Semester"
+                    name="currentSemester"
+                    value={formData.currentSemester}
+                    onChange={handleChange}
+                    options={SEMESTERS}
+                    placeholder="Select your semester"
                   />
                 </FormRow>
 
