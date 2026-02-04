@@ -112,7 +112,7 @@ export async function applyToCompany(input: ApplyInput) {
   }
 
   // Check CGPA eligibility
-  if (student.cgpa !== null && student.cgpa < company.minCgpa) {
+  if (student.cgpa !== null && company.minCgpa !== null && student.cgpa < company.minCgpa) {
     throw AppError.badRequest(
       `Minimum CGPA requirement is ${company.minCgpa}`,
       'CGPA_NOT_ELIGIBLE'

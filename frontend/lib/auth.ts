@@ -32,7 +32,7 @@ interface RegisterInput {
 }
 
 export async function login(input: LoginInput): Promise<{ success: boolean; user?: User; error?: string }> {
-  const response = await apiPost<AuthResponse>('/auth/login', input, { auth: false });
+  const response = await apiPost<AuthResponse>('/auth/login', input as Record<string, unknown>, { auth: false });
 
   if (response.success && response.data) {
     setAccessToken(response.data.accessToken);

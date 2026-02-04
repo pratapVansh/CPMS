@@ -91,7 +91,7 @@ export async function createCompany(req: Request, res: Response): Promise<void> 
     requiredDocuments: validatedData.requiredDocuments,
     specialInstructions: validatedData.specialInstructions,
     status: validatedData.status,
-    createdBy: req.user.id,
+    createdBy: req.user.userId,
   });
 
   res.status(201).json({
