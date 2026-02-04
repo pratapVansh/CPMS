@@ -46,7 +46,7 @@ export async function login(input: LoginInput): Promise<{ success: boolean; user
 }
 
 export async function register(input: RegisterInput): Promise<{ success: boolean; user?: User; error?: string }> {
-  const response = await apiPost<AuthResponse>('/auth/register', input, { auth: false });
+  const response = await apiPost<AuthResponse>('/auth/register', input as unknown as Record<string, unknown>, { auth: false });
 
   if (response.success && response.data) {
     setAccessToken(response.data.accessToken);
