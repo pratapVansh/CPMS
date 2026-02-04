@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus, NoticePriority } from '@prisma/client';
 import * as adminService from '../services/admin.service';
 import { AppError } from '../utils/AppError';
 import { prisma } from '../config/db';
@@ -48,6 +48,19 @@ const updateStatusSchema = z.object({
 const paginationSchema = z.object({
   page: z.string().transform(Number).default('1'),
   limit: z.string().transform(Number).default('10'),
+});
+
+const createNoticeSchema = z.object({
+  title: z.string().min(3).max(200),
+  description: z.string().min(10),
+  priority: z.nativeEnum(NoticePriority).optional().default(NoticePriority.NORMAL),
+});
+
+const updateNoticeSchema = z.object({
+  title: z.string().min(3).max(200).optional(),
+  description: z.string().min(10).optional(),
+  priority: z.nativeEnum(NoticePriority).optional(),
+  isActive: z.boolean().optional(),
 });
 
 export async function createCompany(req: Request, res: Response): Promise<void> {
@@ -348,5 +361,77 @@ export async function getStudentDocument(req: Request, res: Response): Promise<v
       type,
       url: signedUrl,
     },
+  });
+}
+
+// Notice Management
+export async function createNotice(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const validatedData = createNoticeSchema.parse(req.body);
+
+  const notice = await adminService.createNotice({
+    title: validatedData.title,
+    description: validatedData.description,
+    priority: validatedData.priority,
+    createdBy: req.user.userId,
+  });
+
+  res.status(201).json({
+    success: true,
+    data: { notice },
+    message: 'Notice created successfully',
+  });
+}
+
+export async function getAllNotices(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { page, limit } = paginationSchema.parse(req.query);
+
+  const result = await adminService.getAllNotices({
+    page,
+    limit: Math.min(limit, 50),
+  });
+
+  res.json({
+    success: true,
+    data: result,
+  });
+}
+
+export async function updateNotice(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id } = req.params;
+  const validatedData = updateNoticeSchema.parse(req.body);
+
+  const notice = await adminService.updateNotice(id, validatedData);
+
+  res.json({
+    success: true,
+    data: { notice },
+    message: 'Notice updated successfully',
+  });
+}
+
+export async function deleteNotice(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id } = req.params;
+
+  await adminService.deleteNotice(id);
+
+  res.json({
+    success: true,
+    message: 'Notice deleted successfully',
   });
 }

@@ -25,4 +25,10 @@ router.get('/students/:id/document/:type', adminController.getStudentDocument);
 // Stats
 router.get('/stats', adminController.getStats);
 
+// Notices
+router.post('/notices', adminController.createNotice);
+router.get('/notices', adminController.getAllNotices);
+router.put('/notices/:id', adminController.updateNotice);
+router.delete('/notices/:id', adminController.deleteNotice);
+
 export default router;

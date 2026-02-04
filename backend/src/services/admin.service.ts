@@ -1,6 +1,6 @@
 import { prisma } from '../config/db';
 import { AppError } from '../utils/AppError';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus, NoticePriority } from '@prisma/client';
 import { addEmailJob } from '../queues/email.queue';
 import { invalidateEligibleCompaniesCache } from './student.service';
 
@@ -36,6 +36,20 @@ export interface UpdateApplicationStatusInput {
 export interface PaginationParams {
   page: number;
   limit: number;
+}
+
+export interface CreateNoticeInput {
+  title: string;
+  description: string;
+  priority: NoticePriority;
+  createdBy: string;
+}
+
+export interface UpdateNoticeInput {
+  title?: string;
+  description?: string;
+  priority?: NoticePriority;
+  isActive?: boolean;
 }
 
 export async function createCompany(input: CreateCompanyInput) {
@@ -305,4 +319,106 @@ export async function getApplicationStats() {
       rejected: rejectedCount,
     },
   };
+}
+
+// Notice Management
+export async function createNotice(input: CreateNoticeInput) {
+  const notice = await prisma.notice.create({
+    data: {
+      title: input.title,
+      description: input.description,
+      priority: input.priority,
+      createdBy: input.createdBy,
+    },
+    include: {
+      admin: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return notice;
+}
+
+export async function getAllNotices(pagination: PaginationParams) {
+  const { page, limit } = pagination;
+  const skip = (page - 1) * limit;
+
+  const [notices, total] = await Promise.all([
+    prisma.notice.findMany({
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      include: {
+        admin: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.notice.count(),
+  ]);
+
+  return {
+    notices,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasMore: skip + notices.length < total,
+    },
+  };
+}
+
+export async function updateNotice(noticeId: string, input: UpdateNoticeInput) {
+  const notice = await prisma.notice.findUnique({
+    where: { id: noticeId },
+  });
+
+  if (!notice) {
+    throw AppError.notFound('Notice not found', 'NOTICE_NOT_FOUND');
+  }
+
+  const updatedNotice = await prisma.notice.update({
+    where: { id: noticeId },
+    data: input,
+    include: {
+      admin: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return updatedNotice;
+}
+
+export async function deleteNotice(noticeId: string) {
+  const notice = await prisma.notice.findUnique({
+    where: { id: noticeId },
+  });
+
+  if (!notice) {
+    throw AppError.notFound('Notice not found', 'NOTICE_NOT_FOUND');
+  }
+
+  await prisma.notice.delete({
+    where: { id: noticeId },
+  });
+
+  return { success: true };
 }

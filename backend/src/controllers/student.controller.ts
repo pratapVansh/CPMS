@@ -122,3 +122,21 @@ export async function getResume(req: Request, res: Response): Promise<void> {
     },
   });
 }
+
+export async function getNotices(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { page, limit } = paginationSchema.parse(req.query);
+
+  const result = await studentService.getActiveNotices({
+    page,
+    limit: Math.min(limit, 50),
+  });
+
+  res.json({
+    success: true,
+    data: result,
+  });
+}

@@ -57,10 +57,24 @@ export async function getEligibleCompanies(query: EligibleCompaniesQuery) {
     select: {
       id: true,
       name: true,
+      logoUrl: true,
+      industry: true,
+      website: true,
+      description: true,
       roleOffered: true,
+      jobDescription: true,
+      ctc: true,
+      location: true,
+      jobType: true,
       minCgpa: true,
+      maxBacklogs: true,
       allowedBranches: true,
+      allowedYears: true,
+      driveDate: true,
       deadline: true,
+      selectionRounds: true,
+      requiredDocuments: true,
+      specialInstructions: true,
       createdAt: true,
     },
   });
@@ -234,4 +248,48 @@ export async function invalidateEligibleCompaniesCache() {
   if (keys.length > 0) {
     await redis.del(...keys);
   }
+}
+
+// Get active notices for students
+export async function getActiveNotices(pagination: PaginationParams) {
+  const { page, limit } = pagination;
+  const skip = (page - 1) * limit;
+
+  const [notices, total] = await Promise.all([
+    prisma.notice.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        priority: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.notice.count({
+      where: {
+        isActive: true,
+      },
+    }),
+  ]);
+
+  return {
+    notices,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasMore: skip + notices.length < total,
+    },
+  };
 }

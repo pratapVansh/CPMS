@@ -229,6 +229,7 @@ export const navigation = {
     { href: '/admin/dashboard', label: 'Dashboard' },
     { href: '/admin/drives', label: 'Drives' },
     { href: '/admin/students', label: 'Students' },
+    { href: '/admin/notices', label: 'Notices' },
     { href: '/admin/reports', label: 'Reports' },
   ],
   superadmin: [
