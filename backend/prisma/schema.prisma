@@ -28,6 +28,13 @@ enum ApplicationStatus {
   SELECTED
 }
 
+enum NoticePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 // Models
 model User {
   id            String         @id @default(uuid())
@@ -38,6 +45,8 @@ model User {
   status        UserStatus     @default(ACTIVE)
   cgpa          Float?
   branch        String?
+  currentYear   Int?
+  currentSemester Int?
   createdBy     String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -52,6 +61,7 @@ model User {
   resume        Resume?
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
+  notices       Notice[]
 
   @@index([email])
   @@index([role])
@@ -76,17 +86,49 @@ model AuditLog {
 
 model Company {
   id              String        @id @default(uuid())
+  
+  // Company Details
   name            String
+  logoUrl         String?
+  industry        String?
+  website         String?
+  description     String?
+  
+  // Job Details
   roleOffered     String
-  minCgpa         Float
+  jobDescription  String?
+  ctc             String?
+  location        String?
+  jobType         String?       @default("Full-time")
+  
+  // Eligibility Criteria
+  minCgpa         Float?
+  maxBacklogs     Int?
   allowedBranches String[]
+  allowedYears    Int[]
+  
+  // Drive Schedule
+  driveDate       DateTime?
   deadline        DateTime
+  selectionRounds String?
+  
+  // Additional Info
+  requiredDocuments String?
+  specialInstructions String?
+  
+  // Status
+  status          String        @default("upcoming") // upcoming, ongoing, completed, cancelled
+  
+  // Meta
+  createdBy       String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   applications    Application[]
 
   @@index([deadline])
+  @@index([status])
+  @@index([driveDate])
 }
 
 model Application {
@@ -127,4 +169,21 @@ model RefreshToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model Notice {
+  id          String         @id @default(uuid())
+  title       String
+  description String         @db.Text
+  priority    NoticePriority @default(NORMAL)
+  isActive    Boolean        @default(true)
+  createdBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  admin       User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([createdBy])
+  @@index([isActive])
+  @@index([createdAt])
 }

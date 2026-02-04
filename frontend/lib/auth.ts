@@ -1,4 +1,8 @@
 import { apiPost, getAccessToken, setAccessToken, removeAccessToken } from './api';
+import Cookies from 'js-cookie';
+
+// Re-export token functions for components that need direct access
+export { setAccessToken, getAccessToken, removeAccessToken };
 
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'STUDENT';
 
@@ -28,11 +32,13 @@ interface RegisterInput {
 }
 
 export async function login(input: LoginInput): Promise<{ success: boolean; user?: User; error?: string }> {
-  const response = await apiPost<AuthResponse>('/auth/login', input, { auth: false });
+  const response = await apiPost<AuthResponse>('/auth/login', input as unknown as Record<string, unknown>, { auth: false });
 
   if (response.success && response.data) {
     setAccessToken(response.data.accessToken);
     saveUser(response.data.user);
+    // Set cookie for middleware
+    Cookies.set('accessToken', response.data.accessToken, { expires: 7 });
     return { success: true, user: response.data.user };
   }
 
@@ -40,7 +46,7 @@ export async function login(input: LoginInput): Promise<{ success: boolean; user
 }
 
 export async function register(input: RegisterInput): Promise<{ success: boolean; user?: User; error?: string }> {
-  const response = await apiPost<AuthResponse>('/auth/register', input, { auth: false });
+  const response = await apiPost<AuthResponse>('/auth/register', input as unknown as Record<string, unknown>, { auth: false });
 
   if (response.success && response.data) {
     setAccessToken(response.data.accessToken);
@@ -55,6 +61,8 @@ export async function logout(): Promise<void> {
   await apiPost('/auth/logout', {}, { auth: false });
   removeAccessToken();
   removeUser();
+  // Remove cookie
+  Cookies.remove('accessToken');
   
   if (typeof window !== 'undefined') {
     window.location.href = '/login';

@@ -1,15 +1,31 @@
 import { prisma } from '../config/db';
 import { AppError } from '../utils/AppError';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus, NoticePriority } from '@prisma/client';
 import { addEmailJob } from '../queues/email.queue';
 import { invalidateEligibleCompaniesCache } from './student.service';
 
 export interface CreateCompanyInput {
   name: string;
+  logoUrl?: string;
+  industry?: string;
+  website?: string;
+  description?: string;
   roleOffered: string;
-  minCgpa: number;
+  jobDescription?: string;
+  ctc?: string;
+  location?: string;
+  jobType?: string;
+  minCgpa?: number;
+  maxBacklogs?: number;
   allowedBranches: string[];
+  allowedYears: number[];
+  driveDate?: Date;
   deadline: Date;
+  selectionRounds?: string;
+  requiredDocuments?: string;
+  specialInstructions?: string;
+  status?: string;
+  createdBy?: string;
 }
 
 export interface UpdateApplicationStatusInput {
@@ -22,8 +38,44 @@ export interface PaginationParams {
   limit: number;
 }
 
+export interface CreateNoticeInput {
+  title: string;
+  description: string;
+  priority: NoticePriority;
+  createdBy: string;
+}
+
+export interface UpdateNoticeInput {
+  title?: string;
+  description?: string;
+  priority?: NoticePriority;
+  isActive?: boolean;
+}
+
 export async function createCompany(input: CreateCompanyInput) {
-  const { name, roleOffered, minCgpa, allowedBranches, deadline } = input;
+  const { 
+    name, 
+    logoUrl,
+    industry,
+    website,
+    description,
+    roleOffered, 
+    jobDescription,
+    ctc,
+    location,
+    jobType,
+    minCgpa, 
+    maxBacklogs,
+    allowedBranches, 
+    allowedYears, 
+    driveDate,
+    deadline,
+    selectionRounds,
+    requiredDocuments,
+    specialInstructions,
+    status,
+    createdBy,
+  } = input;
 
   // Validate deadline is in the future
   if (new Date(deadline) <= new Date()) {
@@ -33,10 +85,26 @@ export async function createCompany(input: CreateCompanyInput) {
   const company = await prisma.company.create({
     data: {
       name,
+      logoUrl,
+      industry,
+      website,
+      description,
       roleOffered,
+      jobDescription,
+      ctc,
+      location,
+      jobType: jobType ?? 'Full-time',
       minCgpa,
+      maxBacklogs,
       allowedBranches,
+      allowedYears,
+      driveDate,
       deadline: new Date(deadline),
+      selectionRounds,
+      requiredDocuments,
+      specialInstructions,
+      status: status ?? 'upcoming',
+      createdBy,
     },
   });
 
@@ -56,53 +124,76 @@ export async function getCompanyApplicants(
   // Check if company exists
   const company = await prisma.company.findUnique({
     where: { id: companyId },
+    include: {
+      applications: {
+        include: {
+          student: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              cgpa: true,
+              branch: true,
+              resume: {
+                select: {
+                  url: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
   });
 
   if (!company) {
     throw AppError.notFound('Company not found', 'COMPANY_NOT_FOUND');
   }
 
-  const [applications, total] = await Promise.all([
-    prisma.application.findMany({
-      where: { companyId },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            cgpa: true,
-            branch: true,
-            resume: {
-              select: {
-                url: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    }),
-    prisma.application.count({
-      where: { companyId },
-    }),
-  ]);
+  // Transform applications to match frontend expectation (user instead of student)
+  const transformedApplications = company.applications.map((app) => ({
+    id: app.id,
+    status: app.status,
+    createdAt: app.createdAt,
+    user: app.student,
+  }));
 
   return {
     company: {
       id: company.id,
       name: company.name,
+      logoUrl: company.logoUrl,
+      industry: company.industry,
+      website: company.website,
+      description: company.description,
       roleOffered: company.roleOffered,
+      jobDescription: company.jobDescription,
+      ctc: company.ctc,
+      location: company.location,
+      jobType: company.jobType,
+      minCgpa: company.minCgpa,
+      maxBacklogs: company.maxBacklogs,
+      allowedBranches: company.allowedBranches,
+      allowedYears: company.allowedYears,
+      driveDate: company.driveDate,
+      deadline: company.deadline,
+      selectionRounds: company.selectionRounds,
+      requiredDocuments: company.requiredDocuments,
+      specialInstructions: company.specialInstructions,
+      status: company.status,
+      applications: transformedApplications,
+      _count: {
+        applications: company.applications.length,
+      },
     },
-    applications,
+    applications: transformedApplications,
     pagination: {
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasMore: skip + applications.length < total,
+      total: company.applications.length,
+      totalPages: Math.ceil(company.applications.length / limit),
+      hasMore: false,
     },
   };
 }
@@ -208,16 +299,19 @@ export async function getApplicationStats() {
     shortlistedCount,
     selectedCount,
     rejectedCount,
+    totalStudents,
   ] = await Promise.all([
     prisma.application.count(),
     prisma.application.count({ where: { status: ApplicationStatus.APPLIED } }),
     prisma.application.count({ where: { status: ApplicationStatus.SHORTLISTED } }),
     prisma.application.count({ where: { status: ApplicationStatus.SELECTED } }),
     prisma.application.count({ where: { status: ApplicationStatus.REJECTED } }),
+    prisma.user.count({ where: { role: 'STUDENT' } }),
   ]);
 
   return {
     total: totalApplications,
+    totalStudents,
     byStatus: {
       applied: appliedCount,
       shortlisted: shortlistedCount,
@@ -225,4 +319,106 @@ export async function getApplicationStats() {
       rejected: rejectedCount,
     },
   };
+}
+
+// Notice Management
+export async function createNotice(input: CreateNoticeInput) {
+  const notice = await prisma.notice.create({
+    data: {
+      title: input.title,
+      description: input.description,
+      priority: input.priority,
+      createdBy: input.createdBy,
+    },
+    include: {
+      admin: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return notice;
+}
+
+export async function getAllNotices(pagination: PaginationParams) {
+  const { page, limit } = pagination;
+  const skip = (page - 1) * limit;
+
+  const [notices, total] = await Promise.all([
+    prisma.notice.findMany({
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      include: {
+        admin: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.notice.count(),
+  ]);
+
+  return {
+    notices,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasMore: skip + notices.length < total,
+    },
+  };
+}
+
+export async function updateNotice(noticeId: string, input: UpdateNoticeInput) {
+  const notice = await prisma.notice.findUnique({
+    where: { id: noticeId },
+  });
+
+  if (!notice) {
+    throw AppError.notFound('Notice not found', 'NOTICE_NOT_FOUND');
+  }
+
+  const updatedNotice = await prisma.notice.update({
+    where: { id: noticeId },
+    data: input,
+    include: {
+      admin: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return updatedNotice;
+}
+
+export async function deleteNotice(noticeId: string) {
+  const notice = await prisma.notice.findUnique({
+    where: { id: noticeId },
+  });
+
+  if (!notice) {
+    throw AppError.notFound('Notice not found', 'NOTICE_NOT_FOUND');
+  }
+
+  await prisma.notice.delete({
+    where: { id: noticeId },
+  });
+
+  return { success: true };
 }

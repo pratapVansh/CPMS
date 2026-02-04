@@ -19,4 +19,7 @@ router.get('/applications/my', studentController.getMyApplications);
 router.post('/resume', studentController.upsertResume);
 router.get('/resume', studentController.getResume);
 
+// Notices
+router.get('/notices', studentController.getNotices);
+
 export default router;

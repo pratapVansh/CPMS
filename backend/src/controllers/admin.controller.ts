@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus, NoticePriority } from '@prisma/client';
 import * as adminService from '../services/admin.service';
 import { AppError } from '../utils/AppError';
 import { prisma } from '../config/db';
@@ -8,11 +8,37 @@ import * as cloudinaryService from '../services/cloudinary.service';
 
 // Validation schemas
 const createCompanySchema = z.object({
+  // Company Details
   name: z.string().min(2).max(200),
+  logoUrl: z.string().url().optional(),
+  industry: z.string().optional(),
+  website: z.string().url().optional(),
+  description: z.string().optional(),
+  
+  // Job Details
   roleOffered: z.string().min(2).max(200),
-  minCgpa: z.number().min(0).max(10),
-  allowedBranches: z.array(z.string()).default([]),
-  deadline: z.string().datetime(),
+  jobDescription: z.string().optional(),
+  ctc: z.string().optional(),
+  location: z.string().optional(),
+  jobType: z.string().optional().default("Full-time"),
+  
+  // Eligibility Criteria
+  minCgpa: z.number().min(0).max(10).optional(),
+  maxBacklogs: z.number().min(0).optional(),
+  allowedBranches: z.array(z.string()).optional().default([]),
+  allowedYears: z.array(z.number()).optional().default([]),
+  
+  // Drive Schedule
+  driveDate: z.string().transform(date => date ? new Date(date).toISOString() : null).optional(),
+  deadline: z.string().transform(date => new Date(date).toISOString()),
+  selectionRounds: z.string().optional(),
+  
+  // Additional Info
+  requiredDocuments: z.string().optional(),
+  specialInstructions: z.string().optional(),
+  
+  // Status
+  status: z.string().optional().default("upcoming"),
 });
 
 const updateStatusSchema = z.object({
@@ -24,6 +50,19 @@ const paginationSchema = z.object({
   limit: z.string().transform(Number).default('10'),
 });
 
+const createNoticeSchema = z.object({
+  title: z.string().min(3).max(200),
+  description: z.string().min(10),
+  priority: z.nativeEnum(NoticePriority).optional().default(NoticePriority.NORMAL),
+});
+
+const updateNoticeSchema = z.object({
+  title: z.string().min(3).max(200).optional(),
+  description: z.string().min(10).optional(),
+  priority: z.nativeEnum(NoticePriority).optional(),
+  isActive: z.boolean().optional(),
+});
+
 export async function createCompany(req: Request, res: Response): Promise<void> {
   if (!req.user) {
     throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
@@ -32,8 +71,27 @@ export async function createCompany(req: Request, res: Response): Promise<void> 
   const validatedData = createCompanySchema.parse(req.body);
 
   const company = await adminService.createCompany({
-    ...validatedData,
+    name: validatedData.name,
+    logoUrl: validatedData.logoUrl,
+    industry: validatedData.industry,
+    website: validatedData.website,
+    description: validatedData.description,
+    roleOffered: validatedData.roleOffered,
+    jobDescription: validatedData.jobDescription,
+    ctc: validatedData.ctc,
+    location: validatedData.location,
+    jobType: validatedData.jobType,
+    minCgpa: validatedData.minCgpa,
+    maxBacklogs: validatedData.maxBacklogs,
+    allowedBranches: validatedData.allowedBranches ?? [],
+    allowedYears: validatedData.allowedYears ?? [],
+    driveDate: validatedData.driveDate ? new Date(validatedData.driveDate) : undefined,
     deadline: new Date(validatedData.deadline),
+    selectionRounds: validatedData.selectionRounds,
+    requiredDocuments: validatedData.requiredDocuments,
+    specialInstructions: validatedData.specialInstructions,
+    status: validatedData.status,
+    createdBy: req.user.userId,
   });
 
   res.status(201).json({
@@ -64,7 +122,9 @@ export async function getCompanyApplicants(req: Request, res: Response): Promise
 
   res.json({
     success: true,
-    data: result,
+    data: {
+      company: result.company,
+    },
   });
 }
 
@@ -301,5 +361,77 @@ export async function getStudentDocument(req: Request, res: Response): Promise<v
       type,
       url: signedUrl,
     },
+  });
+}
+
+// Notice Management
+export async function createNotice(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const validatedData = createNoticeSchema.parse(req.body);
+
+  const notice = await adminService.createNotice({
+    title: validatedData.title,
+    description: validatedData.description,
+    priority: validatedData.priority,
+    createdBy: req.user.userId,
+  });
+
+  res.status(201).json({
+    success: true,
+    data: { notice },
+    message: 'Notice created successfully',
+  });
+}
+
+export async function getAllNotices(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { page, limit } = paginationSchema.parse(req.query);
+
+  const result = await adminService.getAllNotices({
+    page,
+    limit: Math.min(limit, 50),
+  });
+
+  res.json({
+    success: true,
+    data: result,
+  });
+}
+
+export async function updateNotice(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id } = req.params;
+  const validatedData = updateNoticeSchema.parse(req.body);
+
+  const notice = await adminService.updateNotice(id, validatedData);
+
+  res.json({
+    success: true,
+    data: { notice },
+    message: 'Notice updated successfully',
+  });
+}
+
+export async function deleteNotice(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id } = req.params;
+
+  await adminService.deleteNotice(id);
+
+  res.json({
+    success: true,
+    message: 'Notice deleted successfully',
   });
 }
