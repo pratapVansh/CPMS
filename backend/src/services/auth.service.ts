@@ -9,6 +9,7 @@ import {
   getRefreshTokenExpiryDate,
   TokenPayload,
 } from '../utils/jwt';
+import { notifyStudentRegistration } from './notification.service';
 
 export interface RegisterInput {
   name: string;
@@ -68,6 +69,11 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
 
   // Generate tokens
   const tokens = await generateTokens({ userId: user.id, role: user.role });
+
+  // Send welcome email notification (async, don't wait)
+  notifyStudentRegistration(user.id).catch(error => {
+    console.error('Failed to send welcome email:', error);
+  });
 
   return {
     user: {

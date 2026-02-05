@@ -2,6 +2,7 @@ import { prisma } from '../config/db';
 import { redis } from '../config/redis';
 import { AppError } from '../utils/AppError';
 import { ApplicationStatus } from '@prisma/client';
+import { notifyApplicationSubmitted } from './notification.service';
 
 const ELIGIBLE_COMPANIES_CACHE_PREFIX = 'eligible_companies:';
 const CACHE_TTL = 600; // 10 minutes in seconds
@@ -166,6 +167,11 @@ export async function applyToCompany(input: ApplyInput) {
 
   // Invalidate eligible companies cache for this student
   await redis.del(`${ELIGIBLE_COMPANIES_CACHE_PREFIX}${studentId}`);
+
+  // Send application confirmation email (async, don't wait)
+  notifyApplicationSubmitted(application.id).catch(error => {
+    console.error('Failed to send application confirmation email:', error);
+  });
 
   return application;
 }
