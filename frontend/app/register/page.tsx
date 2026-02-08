@@ -9,7 +9,7 @@ import { setAccessToken, saveUser, User } from '@/lib/auth';
 import { institution } from '@/lib/design-system';
 import { Card, Button, Input, Select, FormGroup, FormRow, Checkbox, AppFooter } from '@/components/common';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 const BRANCHES = [
   { value: 'Computer Science', label: 'Computer Science' },
