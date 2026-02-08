@@ -5,9 +5,15 @@ import * as settingsService from '../services/settings.service';
 const smtpSettingsSchema = z.object({
   smtpHost: z.string().optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
-  smtpUser: z.string().email().optional(),
+  smtpUser: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.string().email().optional()
+  ),
   smtpPassword: z.string().optional(),
-  emailFrom: z.string().email().optional(),
+  emailFrom: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.string().email().optional()
+  ),
   emailFromName: z.string().optional(),
   smtpSecure: z.boolean().optional(),
 });
