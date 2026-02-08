@@ -1,7 +1,8 @@
 // Prisma schema for CPMS
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -26,6 +27,9 @@ enum ApplicationStatus {
   SHORTLISTED
   REJECTED
   SELECTED
+  UNDER_REVIEW
+  PROFILE_INCOMPLETE
+  ON_HOLD
 }
 
 enum NoticePriority {
@@ -33,6 +37,19 @@ enum NoticePriority {
   NORMAL
   HIGH
   URGENT
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  RETRY
 }
 
 // Models
@@ -62,6 +79,9 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   notices       Notice[]
+  notifications NotificationLog[]
+  campaigns     MessageCampaign[]  // Campaigns created by this admin
+  messageLogs   MessageLog[]       // Messages sent to this student
 
   @@index([email])
   @@index([role])
@@ -125,6 +145,7 @@ model Company {
   updatedAt       DateTime      @updatedAt
 
   applications    Application[]
+  campaigns       MessageCampaign[]  // Bulk message campaigns for this drive
 
   @@index([deadline])
   @@index([status])
@@ -186,4 +207,264 @@ model Notice {
   @@index([createdBy])
   @@index([isActive])
   @@index([createdAt])
+}
+
+
+model NotificationLog {
+  id            String              @id @default(uuid())
+  userId        String
+  eventType     String              // APPLICATION_SUBMITTED, APPLICATION_STATUS_CHANGED, etc.
+  channel       NotificationChannel
+  status        NotificationStatus  @default(PENDING)
+  recipientEmail String?
+  recipientPhone String?
+  subject       String?
+  message       String?             @db.Text
+  metadata      Json?               // Additional context (companyName, status, etc.)
+  error         String?             @db.Text
+  attempts      Int                 @default(0)
+  sentAt        DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([channel])
+  @@index([status])
+  @@index([createdAt])
+  @@map("notification_logs")
+}
+
+model SystemSettings {
+  id        String   @id @default(uuid())
+  
+  // SMTP Configuration
+  smtpHost     String?
+  smtpPort     Int?
+  smtpUser     String?
+  smtpPassword String? // Will be encrypted
+  emailFrom    String?
+  emailFromName String?
+  smtpSecure   Boolean @default(true)
+  
+  // Institution Information
+  institutionName    String?
+  institutionLogo    String? // Cloudinary URL
+  contactEmail       String?
+  contactPhone       String?
+  address            String?
+  websiteUrl         String?
+  
+  // Placement Settings
+  academicYear       String?  // e.g., "2025-2026"
+  placementStartDate DateTime?
+  placementEndDate   DateTime?
+  defaultMinCgpa     Float?   @default(6.0)
+  defaultMaxBacklogs Int?     @default(0)
+  maxResumeSize      Int?     @default(2) // MB
+  allowedResumeFormats String? @default("pdf,docx")
+  
+  // Student Settings
+  studentRegistrationOpen Boolean @default(true)
+  autoApproveStudents     Boolean @default(false)
+  allowedBranches         String? // JSON string array
+  requiredProfileFields   String? // JSON string array
+  
+  // Company/Drive Settings
+  requireDriveApproval    Boolean @default(false)
+  notifyOnNewDrive        Boolean @default(true)
+  maxApplicationsPerStudent Int?  @default(10)
+  
+  // Notification Settings
+  emailNotifications      Boolean @default(true)
+  smsNotifications        Boolean @default(false)
+  pushNotifications       Boolean @default(false)
+  notifyApplicationStatus Boolean @default(true)
+  notifyNewDrive          Boolean @default(true)
+  
+  // Security Settings
+  sessionTimeout          Int?    @default(3600) // seconds
+  minPasswordLength       Int?    @default(8)
+  requirePasswordComplexity Boolean @default(true)
+  maxLoginAttempts        Int?    @default(5)
+  enableTwoFactor         Boolean @default(false)
+  
+  // Appearance Settings
+  primaryColor            String? @default("#3B82F6")
+  secondaryColor          String? @default("#10B981")
+  loginBannerUrl          String?
+  customCss               String? @db.Text
+  
+  // Metadata
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+  createdAt DateTime @default(now())
+  
+  @@map("system_settings")
+}
+
+// ==================== BULK COMMUNICATION SYSTEM ====================
+
+enum TargetType {
+  STATUS            // Target by application status
+  MANUAL_SELECTED   // Manually selected students
+  MANUAL_ALL        // All applicants in drive
+  MANUAL_REMAINING  // N-X (All except selected)
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum MessageDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  BOUNCED
+  DEFERRED
+}
+
+// Campaign represents a bulk messaging session
+model MessageCampaign {
+  id              String          @id @default(uuid())
+  name            String          // Campaign name for admin reference
+  driveId         String          // Company/Drive ID
+  createdBy       String          // Admin user ID
+  status          CampaignStatus  @default(DRAFT)
+  
+  // Execution details
+  scheduledAt     DateTime?       // When to send (null = send immediately)
+  startedAt       DateTime?       // When sending actually began
+  completedAt     DateTime?       // When all emails were processed
+  
+  // Stats (denormalized for quick access)
+  totalRecipients Int             @default(0)
+  sentCount       Int             @default(0)
+  failedCount     Int             @default(0)
+  
+  // Metadata
+  metadata        Json?           // Additional campaign data
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  drive           Company         @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  admin           User            @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  messageBlocks   MessageBlock[]
+  messageLogs     MessageLog[]
+
+  @@index([driveId])
+  @@index([createdBy])
+  @@index([status])
+  @@index([createdAt])
+  @@map("message_campaigns")
+}
+
+// MessageBlock represents one message in a campaign (M1, M2, ...)
+model MessageBlock {
+  id              String          @id @default(uuid())
+  campaignId      String
+  blockOrder      Int             // Order in the campaign (1, 2, 3, ...)
+  
+  // Target definition
+  targetType      TargetType
+  targetValue     String          // JSON: status name OR array of student IDs
+  
+  // Message content
+  subject         String
+  body            String          @db.Text // Rich text HTML
+  
+  // Resolved recipients (computed at send time)
+  resolvedEmails  String[]        // Array of recipient emails
+  recipientCount  Int             @default(0)
+  
+  // Stats
+  sentCount       Int             @default(0)
+  failedCount     Int             @default(0)
+  
+  // Metadata
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  campaign        MessageCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  messageLogs     MessageLog[]
+
+  @@index([campaignId])
+  @@index([targetType])
+  @@map("message_blocks")
+}
+
+// MessageLog tracks individual email delivery
+model MessageLog {
+  id              String                  @id @default(uuid())
+  campaignId      String
+  messageBlockId  String
+  
+  // Recipient
+  studentId       String
+  email           String
+  
+  // Delivery tracking
+  deliveryStatus  MessageDeliveryStatus   @default(PENDING)
+  sentAt          DateTime?
+  error           String?                 @db.Text
+  
+  // Message snapshot (for audit trail)
+  subject         String
+  body            String                  @db.Text
+  
+  // Email service response
+  messageId       String?                 // SMTP message ID
+  attempts        Int                     @default(0)
+  
+  // Metadata
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  // Relations
+  campaign        MessageCampaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  messageBlock    MessageBlock            @relation(fields: [messageBlockId], references: [id], onDelete: Cascade)
+  student         User                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([messageBlockId])
+  @@index([studentId])
+  @@index([email])
+  @@index([deliveryStatus])
+  @@index([sentAt])
+  @@map("message_logs")
+}
+
+// Default email templates for status changes
+model MessageTemplate {
+  id              String          @id @default(uuid())
+  name            String          @unique // e.g., "SHORTLISTED_DEFAULT"
+  description     String?
+  
+  // For status-based templates
+  applicantStatus ApplicationStatus?
+  
+  // Template content
+  subject         String
+  body            String          @db.Text // Rich text with template variables
+  
+  // Control
+  isDefault       Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  
+  // Metadata
+  createdBy       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([applicantStatus])
+  @@map("message_templates")
 }

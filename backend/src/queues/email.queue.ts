@@ -2,11 +2,10 @@ import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 
 export interface EmailJobData {
-  studentEmail: string;
-  companyName: string;
-  studentName?: string;
-  roleOffered?: string;
-  type?: 'SHORTLIST_NOTIFICATION' | 'SELECTION_NOTIFICATION' | 'REJECTION_NOTIFICATION';
+  userId: string;
+  eventType: string;
+  data: any;
+  priority?: number;
 }
 
 export const emailQueue = new Queue<EmailJobData>('emailQueue', {
@@ -15,7 +14,7 @@ export const emailQueue = new Queue<EmailJobData>('emailQueue', {
     attempts: 3,
     backoff: {
       type: 'exponential',
-      delay: 2000,
+      delay: 5000, // 5 seconds initial delay
     },
     removeOnComplete: {
       count: 100,
@@ -30,11 +29,11 @@ export const emailQueue = new Queue<EmailJobData>('emailQueue', {
 
 // Helper function to add email job
 export async function addEmailJob(data: EmailJobData, options?: { delay?: number; priority?: number }) {
-  const job = await emailQueue.add('send-email', data, {
+  const job = await emailQueue.add('send-notification-email', data, {
     delay: options?.delay,
-    priority: options?.priority,
+    priority: data.priority || options?.priority || 3,
   });
-  console.log(`📧 Email job ${job.id} added to queue`);
+  console.log(`📧 Email job ${job.id} added to queue for user ${data.userId}`);
   return job;
 }
 
