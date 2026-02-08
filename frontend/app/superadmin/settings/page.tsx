@@ -302,12 +302,12 @@ export default function SettingsPage() {
               </Button>
               <Button
                 onClick={() => handleSave('smtp', {
-                  smtpHost: settings.smtpHost,
+                  smtpHost: settings.smtpHost || undefined,
                   smtpPort: settings.smtpPort,
-                  smtpUser: settings.smtpUser,
+                  smtpUser: settings.smtpUser || undefined,
                   smtpPassword: settings.smtpPassword || undefined,
-                  emailFrom: settings.emailFrom,
-                  emailFromName: settings.emailFromName,
+                  emailFrom: settings.emailFrom || undefined,
+                  emailFromName: settings.emailFromName || undefined,
                   smtpSecure: settings.smtpSecure,
                 })}
                 disabled={saving === 'smtp'}

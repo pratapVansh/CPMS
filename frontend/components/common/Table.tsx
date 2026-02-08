@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 interface Column<T> {
   key: string;
-  header: string;
+  header: string | (() => ReactNode);
   render?: (item: T, index: number) => ReactNode;
   className?: string;
   width?: string;
@@ -73,7 +73,7 @@ export function DataTable<T>({
                     col.className
                   )}
                 >
-                  {col.header}
+                  {typeof col.header === 'function' ? col.header() : col.header}
                 </th>
               ))}
             </tr>

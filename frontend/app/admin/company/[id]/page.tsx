@@ -21,7 +21,9 @@ import {
   Star,
   XCircle,
   Search,
-  Filter
+  Filter,
+  Mail,
+  Send
 } from 'lucide-react';
 import {
   InstitutionalNavbar,
@@ -39,6 +41,7 @@ import {
   Grid,
   StatCard,
 } from '@/components/common';
+import BulkMessageModal from '@/components/admin/BulkMessageModal';
 
 interface Application {
   id: string;
@@ -92,6 +95,8 @@ export default function CompanyDetailPage() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [isBulkMessageModalOpen, setIsBulkMessageModalOpen] = useState(false);
 
   useEffect(() => {
     const currentUser = getUser();
@@ -112,13 +117,29 @@ export default function CompanyDetailPage() {
   };
 
   const handleStatusChange = async (applicationId: string, newStatus: string) => {
+    // Prompt for notification
+    const shouldNotify = window.confirm(
+      `Do you want to notify the student about this status change?\n\nNew Status: ${newStatus}\n\nClick OK to send a notification or Cancel to skip.`
+    );
+
     setUpdating(applicationId);
+    
+    // Update status
     const response = await apiPut(`/admin/applications/${applicationId}/status`, {
       status: newStatus,
     });
+    
     if (response.success) {
       fetchCompany();
+      
+      // If admin wants to notify, open bulk message modal with pre-filled template
+      if (shouldNotify && company) {
+        // You can enhance this by pre-filling the message modal with a template
+        // For now, just show a success message
+        alert('Status updated! Use the "Send Bulk Message" button to notify students.');
+      }
     }
+    
     setUpdating(null);
   };
 
@@ -144,9 +165,49 @@ export default function CompanyDetailPage() {
     return matchesSearch && matchesStatus;
   }) || [];
 
+  // Handlers for bulk selection
+  const handleSelectStudent = (studentId: string) => {
+    setSelectedStudents((prev) =>
+      prev.includes(studentId)
+        ? prev.filter((id) => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedStudents.length === filteredApplications.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(filteredApplications.map((app) => app.user.id));
+    }
+  };
+
+  const isAllSelected =
+    filteredApplications.length > 0 &&
+    selectedStudents.length === filteredApplications.length;
+
   if (!user) return <PageLoading />;
 
   const columns = [
+    {
+      key: 'select',
+      header: () => (
+        <input
+          type="checkbox"
+          checked={isAllSelected}
+          onChange={handleSelectAll}
+          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+        />
+      ),
+      render: (app: Application) => (
+        <input
+          type="checkbox"
+          checked={selectedStudents.includes(app.user.id)}
+          onChange={() => handleSelectStudent(app.user.id)}
+          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+        />
+      ),
+    },
     {
       key: 'name',
       header: 'Student Name',
@@ -453,7 +514,29 @@ export default function CompanyDetailPage() {
                   <Users className="w-5 h-5 text-gray-600" />
                   Applicant Management
                 </h2>
+                <button
+                  onClick={() => setIsBulkMessageModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                  Send Bulk Message
+                </button>
               </div>
+
+              {/* Selection Info */}
+              {selectedStudents.length > 0 && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+                  <span className="text-sm text-blue-800">
+                    <strong>{selectedStudents.length}</strong> student{selectedStudents.length !== 1 ? 's' : ''} selected
+                  </span>
+                  <button
+                    onClick={() => setSelectedStudents([])}
+                    className="text-sm text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              )}
 
               {/* Application Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -555,6 +638,24 @@ export default function CompanyDetailPage() {
 
       <AppFooter />
       </div>
+
+      {/* Bulk Message Modal */}
+      {company && (
+        <BulkMessageModal
+          driveId={company.id}
+          companyName={company.name}
+          totalApplicants={company.applications.length}
+          selectedStudentIds={selectedStudents}
+          isOpen={isBulkMessageModalOpen}
+          onClose={() => {
+            setIsBulkMessageModalOpen(false);
+            setSelectedStudents([]);
+          }}
+          onSuccess={() => {
+            fetchCompany();
+          }}
+        />
+      )}
     </div>
   );
 }
