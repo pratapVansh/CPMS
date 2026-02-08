@@ -236,6 +236,6 @@ export const navigation = {
     { href: '/superadmin', label: 'Dashboard' },
     { href: '/superadmin/admins', label: 'Admins' },
     { href: '/superadmin/settings', label: 'Settings' },
-    { href: '/superadmin/audit', label: 'Audit Logs' },
+    { href: '/superadmin/audit-logs', label: 'Audit Logs' },
   ],
 } as const;

@@ -3,6 +3,7 @@ import { AppError } from '../utils/AppError';
 import { ApplicationStatus, NoticePriority } from '@prisma/client';
 import { addEmailJob } from '../queues/email.queue';
 import { invalidateEligibleCompaniesCache } from './student.service';
+import { notifyApplicationStatusChange, notifyNewDrivePublished } from './notification.service';
 
 export interface CreateCompanyInput {
   name: string;
@@ -110,6 +111,14 @@ export async function createCompany(input: CreateCompanyInput) {
 
   // Invalidate eligible companies cache for all students
   await invalidateEligibleCompaniesCache();
+
+  // Send notification to eligible students about the new drive
+  try {
+    await notifyNewDrivePublished(company.id);
+  } catch (error) {
+    // Log the error but don't fail the company creation
+    console.error('Failed to send new drive notifications:', error);
+  }
 
   return company;
 }
@@ -226,6 +235,9 @@ export async function updateApplicationStatus(input: UpdateApplicationStatusInpu
     throw AppError.notFound('Application not found', 'APPLICATION_NOT_FOUND');
   }
 
+  // Store old status to check if it changed
+  const oldStatus = application.status;
+
   // Update the status
   const updatedApplication = await prisma.application.update({
     where: { id: applicationId },
@@ -248,15 +260,14 @@ export async function updateApplicationStatus(input: UpdateApplicationStatusInpu
     },
   });
 
-  // If status is SHORTLISTED, add job to email queue
-  if (status === ApplicationStatus.SHORTLISTED) {
-    await addEmailJob({
-      studentEmail: application.student.email,
-      companyName: application.company.name,
-      studentName: application.student.name,
-      roleOffered: application.company.roleOffered,
-      type: 'SHORTLIST_NOTIFICATION',
-    });
+  // Send notification only if status actually changed
+  if (oldStatus !== status) {
+    try {
+      await notifyApplicationStatusChange(applicationId);
+    } catch (error) {
+      // Log the error but don't fail the status update
+      console.error('Failed to send notification for status change:', error);
+    }
   }
 
   return updatedApplication;

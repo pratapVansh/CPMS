@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - mohit-features
+      - feature/vansh
   pull_request:
     branches:
       - main
@@ -47,50 +49,6 @@ jobs:
           path: ./backend/dist
           retention-days: 1
 
-  docker-build:
-    name: Docker Build
-    runs-on: ubuntu-latest
-    needs: build-backend
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build API Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: false
-          tags: cpms-api:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build Worker Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./worker/Dockerfile
-          push: false
-          tags: cpms-worker:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build Frontend Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: false
-          tags: cpms-frontend:${{ github.sha }}
-          build-args: |
-            NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
@@ -117,3 +75,54 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: ./frontend/.next
+          retention-days: 1
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: cpms-api:${{ github.sha }},cpms-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Worker Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./worker
+          file: ./worker/Dockerfile
+          push: false
+          tags: cpms-worker:${{ github.sha }},cpms-worker:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: cpms-frontend:${{ github.sha }},cpms-frontend:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

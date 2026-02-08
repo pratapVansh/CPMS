@@ -1,43 +1,56 @@
+# =========================
 # Build stage
-FROM node:20-alpine AS builder
+# =========================
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl libc6-compat
+# Copy only package files first (better caching)
+COPY package.json package-lock.json ./
 
-COPY package*.json ./
-COPY prisma ./prisma/
-
+# Install all deps (including dev deps for build)
 RUN npm ci
 
+# Copy prisma schema and generate client
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# Copy rest of the source code
 COPY . .
 
-RUN npm run prisma:generate
+# Build the app
 RUN npm run build
 
+
+# =========================
 # Production stage
-FROM node:20-alpine AS production
+# =========================
+FROM node:20-slim AS production
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl libc6-compat
+# Prisma needs OpenSSL
+RUN apt-get update \
+  && apt-get install -y openssl \
+  && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-COPY prisma ./prisma/
+# Copy package files again
+COPY package.json package-lock.json ./
 
+# Install only production deps
 RUN npm ci --omit=dev
 
-COPY --from=builder /app/dist ./dist
+# Copy prisma schema AND generated client from builder
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/prisma ./prisma
 
-EXPOSE 3000
+# Copy built app
+COPY --from=builder /app/dist ./dist
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+# Expose backend port (change if needed)
+EXPOSE 5000
 
+# Start server
 CMD ["node", "dist/server.js"]
