@@ -1,32 +1,49 @@
+# =========================
 # Build stage
-FROM node:20-alpine AS builder
+# =========================
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
+# Copy package files first for caching
 COPY package*.json ./
-COPY prisma ./prisma/
 
 RUN npm ci
 
+# Copy prisma schema (if worker uses Prisma)
+COPY prisma ./prisma/
+RUN npx prisma generate
+
+# Copy source code
 COPY . .
 
-RUN npm run prisma:generate
+# Build TypeScript
 RUN npm run build
 
+
+# =========================
 # Production stage
-FROM node:20-alpine AS production
+# =========================
+FROM node:20-slim AS production
 
 WORKDIR /app
-
 ENV NODE_ENV=production
 
-COPY package*.json ./
-COPY prisma ./prisma/
+# Install OpenSSL (required for Prisma)
+RUN apt-get update \
+  && apt-get install -y openssl \
+  && rm -rf /var/lib/apt/lists/*
 
+# Copy package files and install prod deps
+COPY package*.json ./
 RUN npm ci --omit=dev
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Copy prisma and generate client again
+COPY prisma ./prisma/
+RUN npx prisma generate
 
-# Worker doesn't need to expose ports
+# Copy compiled JS
+COPY --from=builder /app/dist ./dist
+
+# Start worker
 CMD ["node", "dist/jobs/email.worker.js"]
