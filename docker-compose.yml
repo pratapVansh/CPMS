@@ -5,9 +5,9 @@ services:
     container_name: cpms-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: cpms
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-cpms}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -72,9 +72,10 @@ services:
   worker:
     build:
       context: ./backend
-      dockerfile: ../worker/Dockerfile
+      dockerfile: Dockerfile
     container_name: cpms-worker
     restart: unless-stopped
+    command: ["node", "dist/jobs/email.worker.js"]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-cpms}?schema=public}
@@ -87,6 +88,7 @@ services:
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?CLOUDINARY_API_SECRET is required}
     networks:
       - cpms-network
+    
     depends_on:
       postgres:
         condition: service_healthy
