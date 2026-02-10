@@ -11,6 +11,7 @@ export interface EmailTemplate {
 
 export interface TemplateVariables {
   studentName: string;
+  studentRollNo?: string;
   studentEmail?: string;
   companyName?: string;
   driveName?: string;
@@ -27,6 +28,16 @@ export interface TemplateVariables {
   profileIssues?: string[];
   rejectionReason?: string;
   nextSteps?: string;
+}
+
+/**
+ * Format student greeting with name and roll number
+ */
+function getStudentGreeting(studentName: string, rollNo?: string): string {
+  if (rollNo) {
+    return `<strong>${studentName}</strong> (Roll No: <strong>${rollNo}</strong>)`;
+  }
+  return `<strong>${studentName}</strong>`;
 }
 
 /**
@@ -79,7 +90,7 @@ function wrapInHtmlTemplate(content: string): string {
 export function getRegistrationWelcomeTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <p style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #111827;">
@@ -141,7 +152,7 @@ export function getProfileIncompleteTemplate(variables: TemplateVariables): Emai
   
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <p style="margin: 0 0 16px 0; font-size: 16px; color: #374151; line-height: 1.6;">
@@ -200,7 +211,7 @@ export function getProfileIncompleteTemplate(variables: TemplateVariables): Emai
 export function getApplicationSubmittedTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
@@ -263,7 +274,7 @@ export function getApplicationSubmittedTemplate(variables: TemplateVariables): E
 export function getApplicationUnderReviewTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
@@ -321,7 +332,7 @@ export function getApplicationUnderReviewTemplate(variables: TemplateVariables):
 export function getApplicationShortlistedTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <div style="background-color: #f0fdf4; border: 2px solid #10b981; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: center;">
@@ -386,7 +397,7 @@ export function getApplicationShortlistedTemplate(variables: TemplateVariables):
 export function getApplicationSelectedTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <div style="background-color: #f0fdf4; border: 3px solid #10b981; border-radius: 8px; padding: 32px; margin: 24px 0; text-align: center;">
@@ -459,7 +470,7 @@ export function getApplicationSelectedTemplate(variables: TemplateVariables): Em
 export function getApplicationRejectedTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
@@ -525,7 +536,7 @@ export function getApplicationRejectedTemplate(variables: TemplateVariables): Em
 export function getApplicationOnHoldTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
@@ -584,7 +595,7 @@ export function getApplicationOnHoldTemplate(variables: TemplateVariables): Emai
 export function getNewDrivePublishedTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <div style="background-color: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: center;">
@@ -658,7 +669,7 @@ export function getNewDrivePublishedTemplate(variables: TemplateVariables): Emai
 export function getDriveDeadlineReminderTemplate(variables: TemplateVariables): EmailTemplate {
   const content = `
     <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-      Dear <strong>${variables.studentName}</strong>,
+      Dear ${getStudentGreeting(variables.studentName, variables.studentRollNo)},
     </p>
     
     <div style="background-color: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: center;">

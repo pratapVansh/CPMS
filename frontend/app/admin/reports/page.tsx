@@ -24,7 +24,8 @@ interface PlacementStats {
   totalStudents: number;
   totalCompanies: number;
   totalApplications: number;
-  studentsPlaced: number;
+  totalPlacedStudents: number;
+  totalUnplacedStudents: number;
   placementRate: number;
   byStatus: {
     applied: number;
@@ -50,6 +51,7 @@ export default function AdminReportsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<PlacementStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const currentUser = getUser();
@@ -62,41 +64,24 @@ export default function AdminReportsPage() {
   }, [router]);
 
   const fetchStats = async () => {
-    // Fetch real data from API
-    const [statsRes, companiesRes] = await Promise.all([
-      apiGet<{ stats: { total: number; byStatus: PlacementStats['byStatus'] } }>('/admin/stats'),
-      apiGet<{ companies: Array<{ name: string; _count: { applications: number }; applications: Array<{ status: string }> }> }>('/admin/companies'),
-    ]);
-
-    // Build stats from available data
-    const placementStats: PlacementStats = {
-      totalStudents: 0,
-      totalCompanies: companiesRes.data?.companies?.length || 0,
-      totalApplications: statsRes.data?.stats?.total || 0,
-      studentsPlaced: statsRes.data?.stats?.byStatus?.selected || 0,
-      placementRate: 0,
-      byStatus: statsRes.data?.stats?.byStatus || { applied: 0, shortlisted: 0, selected: 0, rejected: 0 },
-      byBranch: [
-        { branch: 'Computer Science', total: 45, placed: 38, rate: 84.4 },
-        { branch: 'Petroleum Engineering', total: 52, placed: 41, rate: 78.8 },
-        { branch: 'Chemical Engineering', total: 48, placed: 35, rate: 72.9 },
-        { branch: 'Mechanical Engineering', total: 40, placed: 28, rate: 70.0 },
-        { branch: 'Electrical Engineering', total: 35, placed: 22, rate: 62.9 },
-      ],
-      topCompanies: companiesRes.data?.companies?.slice(0, 5).map(c => ({
-        name: c.name,
-        applications: c._count?.applications || 0,
-        selected: c.applications?.filter(a => a.status === 'SELECTED').length || 0,
-      })) || [],
-    };
-
-    placementStats.totalStudents = placementStats.byBranch.reduce((sum, b) => sum + b.total, 0);
-    placementStats.placementRate = placementStats.totalStudents > 0 
-      ? (placementStats.studentsPlaced / placementStats.totalStudents) * 100 
-      : 0;
-
-    setStats(placementStats);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch real data from the new reports API endpoint
+      const response = await apiGet<{ data: PlacementStats }>('/admin/reports');
+      
+      if (response.success && response.data) {
+        setStats(response.data);
+      } else {
+        setError('Failed to load report data');
+      }
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+      setError('Failed to load report data. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleExportBranchReport = () => {
@@ -159,6 +144,15 @@ export default function AdminReportsPage() {
             <Card>
               <p className="text-center text-gray-500 py-4">Loading reports...</p>
             </Card>
+          ) : error ? (
+            <Card>
+              <div className="text-center py-4">
+                <p className="text-red-600 mb-2">{error}</p>
+                <Button onClick={fetchStats} size="sm">
+                  Retry
+                </Button>
+              </div>
+            </Card>
           ) : stats ? (
             <>
               {/* Overview Stats */}
@@ -168,6 +162,12 @@ export default function AdminReportsPage() {
                   value={stats.totalStudents}
                   icon={<Users className="w-5 h-5" />}
                   color="blue"
+                />
+                <StatCard
+                  title="Students Placed"
+                  value={stats.totalPlacedStudents}
+                  icon={<TrendingUp className="w-5 h-5" />}
+                  color="green"
                 />
                 <StatCard
                   title="Companies"
@@ -180,6 +180,22 @@ export default function AdminReportsPage() {
                   value={stats.totalApplications}
                   icon={<FileText className="w-5 h-5" />}
                   color="gray"
+                />
+              </div>
+
+              {/* Secondary Stats Row */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <StatCard
+                  title="Unplaced Students"
+                  value={stats.totalUnplacedStudents}
+                  icon={<Users className="w-5 h-5" />}
+                  color="orange"
+                />
+                <StatCard
+                  title="Total Selected"
+                  value={stats.byStatus.selected}
+                  icon={<BarChart3 className="w-5 h-5" />}
+                  color="green"
                 />
                 <StatCard
                   title="Placement Rate"
@@ -233,24 +249,26 @@ export default function AdminReportsPage() {
               </div>
 
               {/* Branch-wise Report */}
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-4">
-                  <SectionTitle>Branch-wise Placement</SectionTitle>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleExportBranchReport}
-                    leftIcon={<Download className="w-4 h-4" />}
-                  >
-                    Export CSV
-                  </Button>
+              {stats.byBranch.length > 0 && (
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <SectionTitle>Branch-wise Placement</SectionTitle>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleExportBranchReport}
+                      leftIcon={<Download className="w-4 h-4" />}
+                    >
+                      Export CSV
+                    </Button>
+                  </div>
+                  <DataTable
+                    columns={branchColumns}
+                    data={stats.byBranch}
+                    keyExtractor={(row) => row.branch}
+                  />
                 </div>
-                <DataTable
-                  columns={branchColumns}
-                  data={stats.byBranch}
-                  keyExtractor={(row) => row.branch}
-                />
-              </div>
+              )}
 
               {/* Top Companies */}
               {stats.topCompanies.length > 0 && (

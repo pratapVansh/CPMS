@@ -106,14 +106,20 @@ export function validatePdfContent(
 
   // Validate each file's content
   for (const file of files) {
+    console.log(`🔍 Validating PDF: ${file.originalname}`);
+    console.log(`   MIME type: ${file.mimetype}`);
+    console.log(`   Size: ${(file.size / 1024).toFixed(2)} KB`);
+    
     // Check PDF magic bytes (%PDF-)
     const pdfSignature = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2D]);
     if (!file.buffer.slice(0, 5).equals(pdfSignature)) {
+      console.error(`❌ Invalid PDF signature for file: ${file.originalname}`);
       throw AppError.badRequest(
-        `File "${file.originalname}" is not a valid PDF`,
+        `File "${file.originalname}" is not a valid PDF. Please ensure you're uploading a proper PDF file.`,
         'INVALID_PDF_CONTENT'
       );
     }
+    console.log(`✅ PDF validation passed: ${file.originalname}`);
   }
 
   next();

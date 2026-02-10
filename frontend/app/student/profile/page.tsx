@@ -23,6 +23,7 @@ interface StudentProfile {
   id: string;
   name: string;
   email: string;
+  rollNo: string | null;
   cgpa: number | null;
   branch: string | null;
   currentYear: number | null;
@@ -131,19 +132,34 @@ export default function StudentProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
     if (file.type !== 'application/pdf') {
-      setError('Only PDF files are allowed');
+      setError('Only PDF files are allowed. Please select a valid PDF file.');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB');
+    // Validate file size (5MB = 5 * 1024 * 1024 bytes)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError(`File size must be less than 5MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+      return;
+    }
+
+    // Validate file has content
+    if (file.size === 0) {
+      setError('The selected file is empty. Please choose a valid PDF file.');
       return;
     }
 
     setError('');
     setSuccess('');
     setUploading(type);
+
+    console.log(`Uploading ${type}:`, {
+      name: file.name,
+      size: `${(file.size / 1024).toFixed(2)} KB`,
+      type: file.type,
+    });
 
     const response = await apiUploadFile<{ resumeUrl?: string; marksheetUrl?: string }>(
       `/profile/${type}`,
@@ -155,9 +171,27 @@ export default function StudentProfilePage() {
 
     if (response.success) {
       setSuccess(`${type === 'resume' ? 'Resume' : 'Marksheet'} uploaded successfully!`);
+      console.log(`✅ ${type} uploaded successfully`);
       fetchProfile();
     } else {
-      setError(response.error?.message || `Failed to upload ${type}`);
+      const errorMessage = response.error?.message || `Failed to upload ${type}`;
+      const errorCode = response.error?.code || '';
+      
+      console.error(`❌ Upload error:`, {
+        message: errorMessage,
+        code: errorCode,
+      });
+
+      // Provide helpful error messages based on error code
+      if (errorCode === 'NO_ROLL_NUMBER') {
+        setError('Your roll number is not set. Please contact the administrator to set your roll number before uploading documents.');
+      } else if (errorCode === 'INVALID_PDF_CONTENT') {
+        setError('The file appears to be corrupted or is not a valid PDF. Please try converting it to PDF again.');
+      } else if (errorCode === 'CLOUDINARY_NOT_CONFIGURED') {
+        setError('Document upload service is not configured. Please contact the administrator.');
+      } else {
+        setError(errorMessage);
+      }
     }
 
     if (type === 'resume' && resumeInputRef.current) {
@@ -183,7 +217,7 @@ export default function StudentProfilePage() {
     }
   };
 
-  const openDocument = (url: string | null) => {
+  const viewDocument = (url: string | null) => {
     if (url) {
       window.open(url, '_blank');
     }
@@ -231,6 +265,12 @@ export default function StudentProfilePage() {
                       <label className="block text-sm text-gray-500 mb-1">Email</label>
                       <p className="text-gray-900">{profile.email}</p>
                     </div>
+                    {profile.rollNo && (
+                      <div>
+                        <label className="block text-sm text-gray-500 mb-1">Roll Number</label>
+                        <p className="text-gray-900 font-semibold">{profile.rollNo}</p>
+                      </div>
+                    )}
                     <div>
                       <label className="block text-sm text-gray-500 mb-1">Branch</label>
                       <p className="text-gray-900">{profile.branch || 'Not set'}</p>
@@ -408,7 +448,7 @@ export default function StudentProfilePage() {
                       {profile.hasResume && (
                         <div className="flex gap-2">
                           <button
-                            onClick={() => openDocument(profile.resumeUrl)}
+                            onClick={() => viewDocument(profile.resumeUrl)}
                             className="flex items-center gap-1 text-blue-600 hover:underline text-sm"
                           >
                             <Eye className="w-4 h-4" />
@@ -471,7 +511,7 @@ export default function StudentProfilePage() {
                       {profile.hasMarksheet && (
                         <div className="flex gap-2">
                           <button
-                            onClick={() => openDocument(profile.marksheetUrl)}
+                            onClick={() => viewDocument(profile.marksheetUrl)}
                             className="flex items-center gap-1 text-blue-600 hover:underline text-sm"
                           >
                             <Eye className="w-4 h-4" />

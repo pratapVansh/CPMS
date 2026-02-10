@@ -332,6 +332,132 @@ export async function getApplicationStats() {
   };
 }
 
+/**
+ * Get comprehensive report statistics for admin dashboard
+ */
+export async function getReportsStats() {
+  // Get total students
+  const totalStudents = await prisma.user.count({ 
+    where: { role: 'STUDENT', status: 'ACTIVE' } 
+  });
+
+  // Get total companies
+  const totalCompanies = await prisma.company.count();
+
+  // Get total applications
+  const totalApplications = await prisma.application.count();
+
+  // Get students with SELECTED status (placed students)
+  const placedStudents = await prisma.application.findMany({
+    where: { status: ApplicationStatus.SELECTED },
+    select: { studentId: true },
+    distinct: ['studentId'],
+  });
+  const totalPlacedStudents = placedStudents.length;
+  const totalUnplacedStudents = totalStudents - totalPlacedStudents;
+
+  // Get application counts by status
+  const [appliedCount, shortlistedCount, selectedCount, rejectedCount] = await Promise.all([
+    prisma.application.count({ where: { status: ApplicationStatus.APPLIED } }),
+    prisma.application.count({ where: { status: ApplicationStatus.SHORTLISTED } }),
+    prisma.application.count({ where: { status: ApplicationStatus.SELECTED } }),
+    prisma.application.count({ where: { status: ApplicationStatus.REJECTED } }),
+  ]);
+
+  // Get branch-wise statistics
+  const studentsByBranch = await prisma.user.groupBy({
+    by: ['branch'],
+    where: {
+      role: 'STUDENT',
+      status: 'ACTIVE',
+      branch: { not: null },
+    },
+    _count: {
+      id: true,
+    },
+    orderBy: {
+      _count: {
+        id: 'desc',
+      },
+    },
+  });
+
+  // For each branch, get placed students count
+  const branchStats = await Promise.all(
+    studentsByBranch.map(async (branchData) => {
+      const placedInBranch = await prisma.application.findMany({
+        where: {
+          status: ApplicationStatus.SELECTED,
+          student: {
+            branch: branchData.branch,
+          },
+        },
+        select: { studentId: true },
+        distinct: ['studentId'],
+      });
+
+      const total = branchData._count.id;
+      const placed = placedInBranch.length;
+      const rate = total > 0 ? (placed / total) * 100 : 0;
+
+      return {
+        branch: branchData.branch || 'Unknown',
+        total,
+        placed,
+        rate,
+      };
+    })
+  );
+
+  // Get top companies by applications
+  const topCompanies = await prisma.company.findMany({
+    select: {
+      name: true,
+      _count: {
+        select: {
+          applications: true,
+        },
+      },
+      applications: {
+        where: { status: ApplicationStatus.SELECTED },
+        select: { id: true },
+      },
+    },
+    orderBy: {
+      applications: {
+        _count: 'desc',
+      },
+    },
+    take: 10,
+  });
+
+  const topCompaniesData = topCompanies.map((company) => ({
+    name: company.name,
+    applications: company._count.applications,
+    selected: company.applications.length,
+  }));
+
+  // Calculate overall placement rate
+  const placementRate = totalStudents > 0 ? (totalPlacedStudents / totalStudents) * 100 : 0;
+
+  return {
+    totalStudents,
+    totalCompanies,
+    totalApplications,
+    totalPlacedStudents,
+    totalUnplacedStudents,
+    placementRate,
+    byStatus: {
+      applied: appliedCount,
+      shortlisted: shortlistedCount,
+      selected: selectedCount,
+      rejected: rejectedCount,
+    },
+    byBranch: branchStats,
+    topCompanies: topCompaniesData,
+  };
+}
+
 // Notice Management
 export async function createNotice(input: CreateNoticeInput) {
   const notice = await prisma.notice.create({

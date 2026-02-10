@@ -34,6 +34,7 @@ interface StudentProfile {
   id: string;
   name: string;
   email: string;
+  rollNo: string | null;
   cgpa: number | null;
   branch: string | null;
   status: 'ACTIVE' | 'DISABLED';
@@ -91,7 +92,7 @@ export default function StudentDetailPage() {
     });
   };
 
-  const openDocument = (url: string | null) => {
+  const viewDocument = (url: string | null) => {
     if (url) {
       window.open(url, '_blank');
     }
@@ -150,6 +151,9 @@ export default function StudentDetailPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">{student.name}</h1>
+                  {student.rollNo && (
+                    <p className="text-sm font-semibold text-blue-600">{student.rollNo}</p>
+                  )}
                   <p className="text-gray-600">{student.email}</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -201,14 +205,16 @@ export default function StudentDetailPage() {
                     </div>
                   </div>
                   {student.hasResume && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => openDocument(student.resumeUrl)}
-                      leftIcon={<Eye className="w-4 h-4" />}
-                    >
-                      View
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => viewDocument(student.resumeUrl)}
+                        leftIcon={<Eye className="w-4 h-4" />}
+                      >
+                        View
+                      </Button>
+                    </div>
                   )}
                 </div>
               </Card>
@@ -227,14 +233,16 @@ export default function StudentDetailPage() {
                     </div>
                   </div>
                   {student.hasMarksheet && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => openDocument(student.marksheetUrl)}
-                      leftIcon={<Eye className="w-4 h-4" />}
-                    >
-                      View
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => viewDocument(student.marksheetUrl)}
+                        leftIcon={<Eye className="w-4 h-4" />}
+                      >
+                        View
+                      </Button>
+                    </div>
                   )}
                 </div>
               </Card>

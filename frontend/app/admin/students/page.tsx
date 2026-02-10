@@ -41,6 +41,14 @@ const CPI_FILTERS = [
   { value: '6', label: '≥ 6.0' },
 ];
 
+const YEAR_FILTERS = [
+  { value: '', label: 'All Years' },
+  { value: '1', label: 'Year 1' },
+  { value: '2', label: 'Year 2' },
+  { value: '3', label: 'Year 3' },
+  { value: '4', label: 'Year 4' },
+];
+
 const DOC_STATUS = [
   { value: '', label: 'All Documents' },
   { value: 'verified', label: 'Verified' },
@@ -52,6 +60,7 @@ interface Student {
   id: string;
   name: string;
   email: string;
+  rollNo: string | null;
   cgpa: number | null;
   branch: string | null;
   status: 'ACTIVE' | 'DISABLED';
@@ -78,10 +87,13 @@ export default function StudentsPage() {
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
   const [cpiFilter, setCpiFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
   const [docFilter, setDocFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const currentUser = getUser();
@@ -90,18 +102,25 @@ export default function StudentsPage() {
       return;
     }
     setUser(currentUser);
-    fetchStudents(1);
   }, [router]);
 
-  const fetchStudents = async (page: number, searchQuery = search) => {
+  // Fetch students when filters change
+  useEffect(() => {
+    if (user) {
+      fetchStudents();
+    }
+  }, [user, activeSearch, branchFilter, cpiFilter, yearFilter, docFilter, currentPage]);
+
+  const fetchStudents = async () => {
     setLoading(true);
     const params = new URLSearchParams({
-      page: page.toString(),
+      page: currentPage.toString(),
       limit: '20',
     });
-    if (searchQuery) params.append('search', searchQuery);
+    if (activeSearch) params.append('search', activeSearch);
     if (branchFilter) params.append('branch', branchFilter);
     if (cpiFilter) params.append('minCgpa', cpiFilter);
+    if (yearFilter) params.append('year', yearFilter);
 
     const response = await apiGet<{ students: Student[]; pagination: PaginationInfo }>(
       `/admin/students?${params}`
@@ -127,12 +146,31 @@ export default function StudentsPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchStudents(1, search);
+    setActiveSearch(search);
+    setCurrentPage(1);
   };
+
+  const handleFilterChange = (filterSetter: (value: string) => void, value: string) => {
+    filterSetter(value);
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setSearch('');
+    setActiveSearch('');
+    setBranchFilter('');
+    setCpiFilter('');
+    setYearFilter('');
+    setDocFilter('');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = activeSearch || branchFilter || cpiFilter || yearFilter || docFilter;
 
   const handleExportCSV = () => {
     exportToCSV(students, 'students_list', [
       { key: 'name', header: 'Name' },
+      { key: 'rollNo', header: 'Roll Number' },
       { key: 'email', header: 'Email' },
       { key: 'branch', header: 'Branch' },
       { key: 'cgpa', header: 'CPI' },
@@ -154,7 +192,14 @@ export default function StudentsPage() {
     {
       key: 'name',
       header: 'Name',
-      render: (student: Student) => <span className="font-medium">{student.name}</span>,
+      render: (student: Student) => (
+        <div>
+          <span className="font-medium">{student.name}</span>
+          {student.rollNo && (
+            <span className="text-xs text-gray-500 block">{student.rollNo}</span>
+          )}
+        </div>
+      ),
     },
     { key: 'email', header: 'Email' },
     { key: 'branch', header: 'Branch', render: (s: Student) => s.branch || '—' },
@@ -240,7 +285,7 @@ export default function StudentsPage() {
             <div className="flex gap-4">
               <div className="flex-1">
                 <Input
-                  placeholder="Search by name or email..."
+                  placeholder="Search by name, email, or roll number..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   leftIcon={<Search className="w-4 h-4" />}
@@ -258,25 +303,43 @@ export default function StudentsPage() {
             </div>
 
             {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
                 <Select
                   label="Branch"
                   value={branchFilter}
-                  onChange={(e) => { setBranchFilter(e.target.value); fetchStudents(1); }}
+                  onChange={(e) => handleFilterChange(setBranchFilter, e.target.value)}
                   options={BRANCHES}
                 />
                 <Select
                   label="Minimum CPI"
                   value={cpiFilter}
-                  onChange={(e) => { setCpiFilter(e.target.value); fetchStudents(1); }}
+                  onChange={(e) => handleFilterChange(setCpiFilter, e.target.value)}
                   options={CPI_FILTERS}
+                />
+                <Select
+                  label="Year"
+                  value={yearFilter}
+                  onChange={(e) => handleFilterChange(setYearFilter, e.target.value)}
+                  options={YEAR_FILTERS}
                 />
                 <Select
                   label="Document Status"
                   value={docFilter}
-                  onChange={(e) => { setDocFilter(e.target.value); fetchStudents(1); }}
+                  onChange={(e) => handleFilterChange(setDocFilter, e.target.value)}
                   options={DOC_STATUS}
                 />
+              </div>
+            )}
+            
+            {hasActiveFilters && (
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  Clear all filters
+                </button>
               </div>
             )}
           </form>
@@ -339,7 +402,7 @@ export default function StudentsPage() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => fetchStudents(pagination.page - 1)}
+                      onClick={() => setCurrentPage(pagination.page - 1)}
                       disabled={pagination.page === 1}
                       leftIcon={<ChevronLeft className="w-4 h-4" />}
                     >
@@ -351,7 +414,7 @@ export default function StudentsPage() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => fetchStudents(pagination.page + 1)}
+                      onClick={() => setCurrentPage(pagination.page + 1)}
                       disabled={pagination.page >= pagination.totalPages}
                       rightIcon={<ChevronRight className="w-4 h-4" />}
                     >

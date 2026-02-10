@@ -21,10 +21,11 @@ router.put('/applications/:id/status', adminController.updateApplicationStatus);
 // Students
 router.get('/students', adminController.getAllStudents);
 router.get('/students/:id', adminController.getStudentProfile);
-router.get('/students/:id/document/:type', adminController.getStudentDocument);
+router.get('/students/:id/document/:type/preview', adminController.getStudentDocumentPreview);
 
 // Stats
 router.get('/stats', adminController.getStats);
+router.get('/reports', adminController.getReports);
 
 // Notices
 router.post('/notices', adminController.createNotice);

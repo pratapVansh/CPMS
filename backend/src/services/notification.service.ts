@@ -135,6 +135,7 @@ export async function notifyStudentRegistration(userId: string): Promise<void> {
     eventType: 'REGISTRATION_WELCOME',
     data: {
       studentName: user.name,
+      studentRollNo: user.rollNo || undefined,
       institutionName: institutionSettings.institutionName,
       institutionEmail: institutionSettings.institutionEmail,
       institutionPhone: institutionSettings.institutionPhone,
@@ -176,7 +177,7 @@ export async function notifyApplicationSubmitted(applicationId: string): Promise
   const application = await prisma.application.findUnique({
     where: { id: applicationId },
     include: {
-      student: { select: { id: true, name: true } },
+      student: { select: { id: true, name: true, rollNo: true } },
       company: {
         select: {
           name: true,
@@ -201,6 +202,7 @@ export async function notifyApplicationSubmitted(applicationId: string): Promise
     eventType: 'APPLICATION_SUBMITTED',
     data: {
       studentName: application.student.name,
+      studentRollNo: application.student.rollNo || undefined,
       companyName: application.company.name,
       roleName: application.company.roleOffered,
       ctc: application.company.ctc,
@@ -229,7 +231,7 @@ export async function notifyApplicationStatusChange(applicationId: string): Prom
       where: { id: applicationId },
       include: {
         student: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, rollNo: true },
         },
         company: {
           select: {
@@ -260,6 +262,7 @@ export async function notifyApplicationStatusChange(applicationId: string): Prom
     // Prepare notification data
     const notificationData = {
       studentName: application.student.name,
+      studentRollNo: application.student.rollNo || undefined,
       companyName: application.company.name,
       roleName: application.company.roleOffered,
       ctc: application.company.ctc || undefined,
@@ -332,7 +335,7 @@ export async function notifyNewDrivePublished(
           role: 'STUDENT',
           status: 'ACTIVE',
         },
-        select: { id: true, name: true },
+        select: { id: true, name: true, rollNo: true },
       });
     }
     
@@ -342,6 +345,7 @@ export async function notifyNewDrivePublished(
     const notifications = students.map(student => {
       const notificationData = {
         studentName: student.name,
+        studentRollNo: student.rollNo || undefined,
         companyName: company.name,
         roleName: company.roleOffered,
         ctc: company.ctc || undefined,
@@ -406,7 +410,7 @@ export async function notifyDriveDeadlineReminder(companyId: string): Promise<vo
           },
         },
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, rollNo: true },
     });
     
     const institutionSettings = await getInstitutionSettings();
@@ -414,6 +418,7 @@ export async function notifyDriveDeadlineReminder(companyId: string): Promise<vo
     const notifications = eligibleStudents.map(student => {
       const notificationData = {
         studentName: student.name,
+        studentRollNo: student.rollNo || undefined,
         companyName: company.name,
         roleName: company.roleOffered,
         deadline: company.deadline 
