@@ -192,9 +192,9 @@ export default function StudentProfilePage() {
   if (!user) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <InstitutionalNavbar user={user} role="student" />
-      <div className="pt-16 md:pt-16">
+      <div className="pt-28 md:pt-16 flex-1 flex flex-col">
       <PageContainer>
         <div className="max-w-4xl mx-auto">
           <PageTitle description="Manage your personal information and documents">My Profile</PageTitle>
@@ -527,7 +527,6 @@ export default function StudentProfilePage() {
           )}
         </div>
       </PageContainer>
-
       <AppFooter />
       </div>
     </div>

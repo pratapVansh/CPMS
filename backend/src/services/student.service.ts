@@ -146,24 +146,33 @@ export async function applyToCompany(input: ApplyInput) {
     throw AppError.conflict('You have already applied to this company', 'ALREADY_APPLIED');
   }
 
-  // Create application
-  const application = await prisma.application.create({
-    data: {
-      studentId,
-      companyId,
-      status: ApplicationStatus.APPLIED,
-    },
-    include: {
-      company: {
-        select: {
-          id: true,
-          name: true,
-          roleOffered: true,
-          deadline: true,
+  // Create application with error handling for race conditions
+  let application;
+  try {
+    application = await prisma.application.create({
+      data: {
+        studentId,
+        companyId,
+        status: ApplicationStatus.APPLIED,
+      },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+            roleOffered: true,
+            deadline: true,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (error: any) {
+    // Handle unique constraint violation (race condition)
+    if (error.code === 'P2002') {
+      throw AppError.conflict('You have already applied to this company', 'ALREADY_APPLIED');
+    }
+    throw error;
+  }
 
   // Invalidate eligible companies cache for this student
   await redis.del(`${ELIGIBLE_COMPANIES_CACHE_PREFIX}${studentId}`);

@@ -170,9 +170,9 @@ export default function DrivesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <InstitutionalNavbar user={user} role="admin" />
-      <div className="pt-16 md:pt-16">
+      <div className="pt-28 md:pt-16 flex-1 flex flex-col">
       <PageContainer>
         <PageTitle
           description="Manage all placement drives and company registrations"
@@ -268,7 +268,6 @@ export default function DrivesPage() {
           <DataTable columns={columns} data={filteredCompanies} keyExtractor={(c) => c.id} />
         )}
       </PageContainer>
-
       <AppFooter />
       </div>
     </div>

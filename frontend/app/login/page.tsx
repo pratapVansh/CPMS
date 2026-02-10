@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { GraduationCap, AlertCircle } from 'lucide-react';
 import { login } from '@/lib/auth';
@@ -10,6 +10,8 @@ import { Card, Button, Input, FormGroup, AppFooter } from '@/components/common';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const loginType = searchParams.get('type') || 'student';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -98,14 +100,16 @@ export default function LoginPage() {
               </FormGroup>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-center text-sm text-gray-600">
-                Don&apos;t have an account?{' '}
-                <Link href="/register" className="text-blue-600 hover:underline font-medium">
-                  Register here
-                </Link>
-              </p>
-            </div>
+            {loginType === 'student' && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-center text-sm text-gray-600">
+                  Don&apos;t have an account?{' '}
+                  <Link href="/register" className="text-blue-600 hover:underline font-medium">
+                    Register here
+                  </Link>
+                </p>
+              </div>
+            )}
           </Card>
 
           <p className="mt-6 text-center text-xs text-gray-500">

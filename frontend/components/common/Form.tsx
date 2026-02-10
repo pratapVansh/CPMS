@@ -1,6 +1,7 @@
 'use client';
 
-import { forwardRef, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, ReactNode } from 'react';
+import { forwardRef, useState, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, ReactNode } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // =============================================================================
@@ -16,8 +17,24 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, leftIcon, rightIcon, className, id, ...props }, ref) => {
+  ({ label, error, hint, leftIcon, rightIcon, className, id, type, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+    const [showPassword, setShowPassword] = useState(false);
+    
+    const isPasswordField = type === 'password';
+    const inputType = isPasswordField && showPassword ? 'text' : type;
+    
+    // If it's a password field and no rightIcon is provided, use the toggle button
+    const effectiveRightIcon = isPasswordField && !rightIcon ? (
+      <button
+        type="button"
+        onClick={() => setShowPassword(!showPassword)}
+        className="cursor-pointer hover:text-gray-600 transition-colors"
+        tabIndex={-1}
+      >
+        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
+    ) : rightIcon;
 
     return (
       <div className="w-full">
@@ -35,20 +52,24 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
+            type={inputType}
             className={cn(
               'w-full px-3 py-2 text-sm bg-white border rounded',
               'focus:outline-none focus:border-blue-500',
               'disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed',
               error ? 'border-red-500' : 'border-gray-300',
               leftIcon && 'pl-10',
-              rightIcon && 'pr-10',
+              effectiveRightIcon && 'pr-10',
               className
             )}
             {...props}
           />
-          {rightIcon && (
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-              {rightIcon}
+          {effectiveRightIcon && (
+            <div className={cn(
+              "absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400",
+              isPasswordField && !rightIcon ? "pointer-events-auto" : "pointer-events-none"
+            )}>
+              {effectiveRightIcon}
             </div>
           )}
         </div>
