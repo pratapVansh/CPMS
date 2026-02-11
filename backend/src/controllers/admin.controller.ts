@@ -265,6 +265,8 @@ export async function getAllStudents(req: Request, res: Response): Promise<void>
         status: true,
         resumePublicId: true,
         marksheetPublicId: true,
+        verificationStatus: true,
+        verifiedAt: true,
         createdAt: true,
         _count: {
           select: {
@@ -286,6 +288,7 @@ export async function getAllStudents(req: Request, res: Response): Promise<void>
     ...student,
     hasResume: !!student.resumePublicId,
     hasMarksheet: !!student.marksheetPublicId,
+    documentsVerified: student.verificationStatus === 'VERIFIED',
     resumePublicId: undefined,
     marksheetPublicId: undefined,
   }));
@@ -327,8 +330,15 @@ export async function getStudentProfile(req: Request, res: Response): Promise<vo
       rollNo: true,
       cgpa: true,
       branch: true,
+      currentYear: true,
+      currentSemester: true,
+      status: true,
       resumePublicId: true,
       marksheetPublicId: true,
+      verificationStatus: true,
+      verifiedBy: true,
+      verifiedAt: true,
+      rejectionReason: true,
       createdAt: true,
       applications: {
         include: {
@@ -367,6 +377,13 @@ export async function getStudentProfile(req: Request, res: Response): Promise<vo
         rollNo: student.rollNo,
         cgpa: student.cgpa,
         branch: student.branch,
+        currentYear: student.currentYear,
+        currentSemester: student.currentSemester,
+        status: student.status,
+        verificationStatus: student.verificationStatus,
+        verifiedBy: student.verifiedBy,
+        verifiedAt: student.verifiedAt,
+        rejectionReason: student.rejectionReason,
         createdAt: student.createdAt,
         hasResume: !!student.resumePublicId,
         hasMarksheet: !!student.marksheetPublicId,
@@ -498,5 +515,91 @@ export async function deleteNotice(req: Request, res: Response): Promise<void> {
   res.json({
     success: true,
     message: 'Notice deleted successfully',
+  });
+}
+
+export async function verifyStudent(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id: studentId } = req.params;
+
+  const student = await prisma.user.findFirst({
+    where: { 
+      id: studentId,
+      role: 'STUDENT',
+    },
+  });
+
+  if (!student) {
+    throw AppError.notFound('Student not found', 'STUDENT_NOT_FOUND');
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: studentId },
+    data: {
+      verificationStatus: 'VERIFIED',
+      verifiedBy: req.user.userId,
+      verifiedAt: new Date(),
+      rejectionReason: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      verificationStatus: true,
+      verifiedAt: true,
+    },
+  });
+
+  res.json({
+    success: true,
+    data: { student: updated },
+    message: 'Student verified successfully',
+  });
+}
+
+export async function rejectStudent(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id: studentId } = req.params;
+  const { reason } = req.body;
+
+  const student = await prisma.user.findFirst({
+    where: { 
+      id: studentId,
+      role: 'STUDENT',
+    },
+  });
+
+  if (!student) {
+    throw AppError.notFound('Student not found', 'STUDENT_NOT_FOUND');
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: studentId },
+    data: {
+      verificationStatus: 'REJECTED',
+      verifiedBy: req.user.userId,
+      verifiedAt: new Date(),
+      rejectionReason: reason || 'Documents rejected',
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      verificationStatus: true,
+      verifiedAt: true,
+      rejectionReason: true,
+    },
+  });
+
+  res.json({
+    success: true,
+    data: { student: updated },
+    message: 'Student verification rejected',
   });
 }

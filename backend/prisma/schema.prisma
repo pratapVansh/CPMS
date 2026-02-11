@@ -22,6 +22,12 @@ enum UserStatus {
   DISABLED
 }
 
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 enum ApplicationStatus {
   APPLIED
   SHORTLISTED
@@ -74,6 +80,12 @@ model User {
   resumeUrl          String?
   marksheetPublicId  String?
   marksheetUrl       String?
+
+  // Document verification
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedBy         String?
+  verifiedAt         DateTime?
+  rejectionReason    String?
 
   applications  Application[]
   resume        Resume?

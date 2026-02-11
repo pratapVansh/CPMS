@@ -89,7 +89,10 @@ export default function ApplicationsClient() {
       fetchApplications(1);
       router.replace('/student/applications');
     } else {
-      setMessage({ type: 'error', text: response.error?.message || 'Failed to apply' });
+      const errorMsg = response.error?.code === 'NOT_VERIFIED'
+        ? 'Your documents are not verified yet. To know more, contact the T&P office.'
+        : response.error?.message || 'Failed to apply';
+      setMessage({ type: 'error', text: errorMsg });
     }
 
     setApplying(false);

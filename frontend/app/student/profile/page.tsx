@@ -28,6 +28,8 @@ interface StudentProfile {
   branch: string | null;
   currentYear: number | null;
   currentSemester: number | null;
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
   createdAt: string;
   hasResume: boolean;
   hasMarksheet: boolean;
@@ -286,6 +288,62 @@ export default function StudentProfilePage() {
                       </p>
                     </div>
                   </div>
+                </div>
+              </Card>
+
+              {/* Verification Status Card */}
+              <Card padding="none">
+                <div className="p-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">Verification Status</h2>
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center gap-3">
+                    {profile.verificationStatus === 'VERIFIED' && (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                          ✓ Verified
+                        </span>
+                        <p className="text-sm text-gray-600">
+                          Your documents have been verified. You can now apply to placement drives.
+                        </p>
+                      </div>
+                    )}
+                    {profile.verificationStatus === 'PENDING' && (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
+                          ⏳ Pending Verification
+                        </span>
+                        <p className="text-sm text-gray-600">
+                          Your documents are under review. You will be notified once verified.
+                        </p>
+                      </div>
+                    )}
+                    {profile.verificationStatus === 'REJECTED' && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
+                            ✗ Verification Rejected
+                          </span>
+                        </div>
+                        {profile.rejectionReason && (
+                          <p className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                            <strong>Reason:</strong> {profile.rejectionReason}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-600 mt-2">
+                          Please update your documents and contact the T&P office for re-verification.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {profile.verificationStatus !== 'VERIFIED' && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Note:</strong> You cannot apply to placement drives until your documents are verified. 
+                        For more information, contact the T&P office.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
 

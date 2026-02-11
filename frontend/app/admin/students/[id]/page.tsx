@@ -37,7 +37,13 @@ interface StudentProfile {
   rollNo: string | null;
   cgpa: number | null;
   branch: string | null;
+  currentYear: number | null;
+  currentSemester: number | null;
   status: 'ACTIVE' | 'DISABLED';
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verifiedBy: string | null;
+  verifiedAt: string | null;
+  rejectionReason: string | null;
   createdAt: string;
   hasResume: boolean;
   hasMarksheet: boolean;
@@ -54,6 +60,11 @@ export default function StudentDetailPage() {
   const [user, setUser] = useState<User | null>(null);
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     const currentUser = getUser();
@@ -96,6 +107,44 @@ export default function StudentDetailPage() {
     if (url) {
       window.open(url, '_blank');
     }
+  };
+
+  const handleVerify = async () => {
+    if (!student) return;
+    setProcessing(true);
+    setError('');
+    setSuccess('');
+
+    const response = await apiPatch(`/admin/students/${studentId}/verify`, {});
+    
+    if (response.success) {
+      setSuccess('Student verified successfully!');
+      fetchStudent();
+    } else {
+      setError(response.error?.message || 'Failed to verify student');
+    }
+    setProcessing(false);
+  };
+
+  const handleReject = async () => {
+    if (!student) return;
+    setProcessing(true);
+    setError('');
+    setSuccess('');
+
+    const response = await apiPatch(`/admin/students/${studentId}/reject`, {
+      reason: rejectionReason || 'Documents rejected',
+    });
+    
+    if (response.success) {
+      setSuccess('Student verification rejected');
+      setShowRejectModal(false);
+      setRejectionReason('');
+      fetchStudent();
+    } else {
+      setError(response.error?.message || 'Failed to reject verification');
+    }
+    setProcessing(false);
   };
 
   if (!user) return <PageLoading />;
@@ -146,6 +195,17 @@ export default function StudentDetailPage() {
           <EmptyState type="error" title="Student not found" />
         ) : (
           <>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-300 text-red-700 rounded text-sm">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-300 text-green-700 rounded text-sm">
+                {success}
+              </div>
+            )}
+
             {/* Student Info */}
             <Card className="mb-6">
               <div className="flex justify-between items-start">
@@ -186,7 +246,102 @@ export default function StudentDetailPage() {
                   <p className="font-medium">{student.applications.length}</p>
                 </div>
               </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 mb-1">Verification Status</p>
+                    <div className="flex items-center gap-2">
+                      {student.verificationStatus === 'VERIFIED' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                          ✓ Verified
+                        </span>
+                      )}
+                      {student.verificationStatus === 'PENDING' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                          ⏳ Pending
+                        </span>
+                      )}
+                      {student.verificationStatus === 'REJECTED' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded">
+                          ✗ Rejected
+                        </span>
+                      )}
+                      {student.verifiedAt && (
+                        <span className="text-xs text-gray-500">
+                          on {formatDate(student.verifiedAt)}
+                        </span>
+                      )}
+                    </div>
+                    {student.rejectionReason && (
+                      <p className="text-xs text-red-600 mt-1">Reason: {student.rejectionReason}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    {student.verificationStatus !== 'VERIFIED' && (
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={handleVerify}
+                        disabled={processing}
+                      >
+                        {processing ? 'Processing...' : '✓ Verify'}
+                      </Button>
+                    )}
+                    {student.verificationStatus !== 'REJECTED' && (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setShowRejectModal(true)}
+                        disabled={processing}
+                      >
+                        ✗ Reject
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </Card>
+
+            {/* Reject Modal */}
+            {showRejectModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <Card className="max-w-md w-full mx-4">
+                  <h3 className="text-lg font-bold mb-4">Reject Verification</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Please provide a reason for rejecting this student's verification:
+                  </p>
+                  <textarea
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                    rows={3}
+                    placeholder="e.g., Invalid documents, CPI mismatch, etc."
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setShowRejectModal(false);
+                        setRejectionReason('');
+                      }}
+                      disabled={processing}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={handleReject}
+                      disabled={processing}
+                    >
+                      {processing ? 'Rejecting...' : 'Reject'}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            )}
 
             {/* Documents */}
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Documents</h2>

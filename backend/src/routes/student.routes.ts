@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as studentController from '../controllers/student.controller';
-import { requireAuth, requireStudent } from '../middleware/auth.middleware';
+import { requireAuth, requireStudent, requireVerifiedStudent } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -12,7 +12,7 @@ router.use(requireStudent);
 router.get('/companies/eligible', studentController.getEligibleCompanies);
 
 // Applications
-router.post('/applications/apply', studentController.applyToCompany);
+router.post('/applications/apply', requireVerifiedStudent, studentController.applyToCompany);
 router.get('/applications/my', studentController.getMyApplications);
 
 // Resume

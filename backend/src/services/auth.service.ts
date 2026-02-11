@@ -38,6 +38,7 @@ export interface AuthResponse {
     name: string;
     email: string;
     role: Role;
+    rollNo: string | null;
   };
   tokens: AuthTokens;
 }
@@ -94,6 +95,7 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
       name: user.name,
       email: user.email,
       role: user.role,
+      rollNo: user.rollNo,
     },
     tokens,
   };
@@ -128,6 +130,7 @@ export async function login(input: LoginInput): Promise<AuthResponse> {
       name: user.name,
       email: user.email,
       role: user.role,
+      rollNo: user.rollNo,
     },
     tokens,
   };

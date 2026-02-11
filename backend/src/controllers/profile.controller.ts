@@ -37,6 +37,10 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
       resumeUrl: true,
       marksheetPublicId: true,
       marksheetUrl: true,
+      verificationStatus: true,
+      rejectionReason: true,
+      verifiedBy: true,
+      verifiedAt: true,
       createdAt: true,
     },
   });
@@ -65,6 +69,8 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
         branch: student.branch,
         currentYear: student.currentYear,
         currentSemester: student.currentSemester,
+        verificationStatus: student.verificationStatus,
+        rejectionReason: student.rejectionReason,
         createdAt: student.createdAt,
         hasResume: !!student.resumePublicId,
         hasMarksheet: !!student.marksheetPublicId,
@@ -87,7 +93,13 @@ export async function updateCpi(req: Request, res: Response): Promise<void> {
 
   const updatedStudent = await prisma.user.update({
     where: { id: req.user.userId },
-    data: { cgpa },
+    data: { 
+      cgpa,
+      verificationStatus: 'PENDING',
+      verifiedBy: null,
+      verifiedAt: null,
+      rejectionReason: null,
+    },
     select: {
       id: true,
       cgpa: true,
@@ -187,6 +199,10 @@ export async function uploadResume(req: Request, res: Response): Promise<void> {
     data: {
       resumePublicId: uploadResult.publicId,
       resumeUrl: uploadResult.secureUrl,
+      verificationStatus: 'PENDING',
+      verifiedBy: null,
+      verifiedAt: null,
+      rejectionReason: null,
     },
   });
 
@@ -259,6 +275,10 @@ export async function uploadMarksheet(req: Request, res: Response): Promise<void
     data: {
       marksheetPublicId: uploadResult.publicId,
       marksheetUrl: uploadResult.secureUrl,
+      verificationStatus: 'PENDING',
+      verifiedBy: null,
+      verifiedAt: null,
+      rejectionReason: null,
     },
   });
 

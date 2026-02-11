@@ -64,6 +64,8 @@ interface Student {
   cgpa: number | null;
   branch: string | null;
   status: 'ACTIVE' | 'DISABLED';
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verifiedAt: string | null;
   createdAt: string;
   hasResume?: boolean;
   hasMarksheet?: boolean;
@@ -209,28 +211,27 @@ export default function StudentsPage() {
       render: (s: Student) => s.cgpa?.toFixed(2) || '—',
     },
     {
-      key: 'documents',
-      header: 'Documents',
+      key: 'verification',
+      header: 'Verification',
       render: (s: Student) => {
-        const status = getDocStatus(s);
+        if (s.verificationStatus === 'VERIFIED') {
+          return (
+            <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+              <FileCheck className="w-3 h-3" /> Verified
+            </span>
+          );
+        }
+        if (s.verificationStatus === 'REJECTED') {
+          return (
+            <span className="flex items-center gap-1 text-xs text-red-600 font-medium">
+              <FileX className="w-3 h-3" /> Rejected
+            </span>
+          );
+        }
         return (
-          <div className="flex items-center gap-1">
-            {status === 'verified' && (
-              <span className="flex items-center gap-1 text-xs text-green-600">
-                <FileCheck className="w-3 h-3" /> Verified
-              </span>
-            )}
-            {status === 'pending' && (
-              <span className="flex items-center gap-1 text-xs text-yellow-600">
-                <FileCheck className="w-3 h-3" /> Pending
-              </span>
-            )}
-            {status === 'missing' && (
-              <span className="flex items-center gap-1 text-xs text-red-600">
-                <FileX className="w-3 h-3" /> Missing
-              </span>
-            )}
-          </div>
+          <span className="flex items-center gap-1 text-xs text-yellow-600 font-medium">
+            <Clock className="w-3 h-3" /> Pending
+          </span>
         );
       },
     },
