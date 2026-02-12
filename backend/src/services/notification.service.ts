@@ -120,7 +120,7 @@ export async function sendNotification(payload: NotificationPayload): Promise<vo
 export async function notifyStudentRegistration(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { name: true },
+    select: { name: true, rollNo: true },
   });
   
   if (!user) {
@@ -326,7 +326,7 @@ export async function notifyNewDrivePublished(
           role: 'STUDENT',
           status: 'ACTIVE',
         },
-        select: { id: true, name: true },
+        select: { id: true, name: true, rollNo: true },
       });
     } else {
       // Get all active students

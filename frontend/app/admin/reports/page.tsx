@@ -69,7 +69,7 @@ export default function AdminReportsPage() {
       setError(null);
       
       // Fetch real data from the new reports API endpoint
-      const response = await apiGet<{ data: PlacementStats }>('/admin/reports');
+      const response = await apiGet<PlacementStats>('/admin/reports');
       
       if (response.success && response.data) {
         setStats(response.data);

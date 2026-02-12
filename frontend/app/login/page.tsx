@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { GraduationCap, AlertCircle } from 'lucide-react';
@@ -8,7 +8,7 @@ import { login } from '@/lib/auth';
 import { institution } from '@/lib/design-system';
 import { Card, Button, Input, FormGroup, AppFooter } from '@/components/common';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const loginType = searchParams.get('type') || 'student';
@@ -120,5 +120,17 @@ export default function LoginPage() {
 
       <AppFooter />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

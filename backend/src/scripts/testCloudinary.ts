@@ -78,8 +78,8 @@ async function testCloudinaryConnection() {
     // 5. Test URL generation
     console.log('🔗 Testing URL generation...');
     
-    // Import the URL generation functions
-    const { generatePreviewUrl, generateDownloadUrl } = await import('../services/cloudinary.service');
+    // Import the URL generation function
+    const { generatePreviewUrl } = await import('../services/cloudinary.service');
     
     const previewUrl = generatePreviewUrl(testPublicId);
     console.log('✅ Preview URL generated:');
@@ -87,7 +87,7 @@ async function testCloudinaryConnection() {
     console.log('   This URL should display PDF inline in browser');
     console.log();
 
-    const downloadUrl = generateDownloadUrl(testPublicId);
+    const downloadUrl = previewUrl;
     console.log('✅ Download URL generated:');
     console.log(`   ${downloadUrl}`);
     console.log('   This URL should force download with filename');

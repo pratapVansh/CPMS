@@ -6,6 +6,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import dns from 'dns';
 import { promisify } from 'util';
 import { prisma } from '../config/db';
@@ -105,7 +106,7 @@ const customLookup = async (hostname: string, options: any, callback: any) => {
 async function createTransporter() {
   const smtpSettings = await getSMTPSettings();
   
-  const transporter = nodemailer.createTransport({
+  const transportOptions = {
     host: smtpSettings.host,
     port: smtpSettings.port,
     secure: smtpSettings.secure,
@@ -121,7 +122,9 @@ async function createTransporter() {
     dnsOptions: {
       lookup: customLookup,
     },
-  });
+  } as SMTPTransport.Options;
+
+  const transporter = nodemailer.createTransport(transportOptions);
 
   return { transporter, smtpSettings };
 }
