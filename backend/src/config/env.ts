@@ -19,8 +19,8 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('7d'),
   
-  // CORS
-  CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  // CORS - supports multiple origins separated by comma
+  CORS_ORIGIN: z.string().default('http://localhost:3000,http://localhost:3001'),
 
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: z.string(),

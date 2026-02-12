@@ -39,7 +39,7 @@ router.post(
 );
 router.delete('/marksheet', profileController.deleteMarksheet);
 
-// Get document URL (generates fresh signed URL)
-router.get('/document/:type', profileController.getDocumentUrl);
+// Get document URLs (preview for inline viewing)
+router.get('/document/:type/preview', profileController.getDocumentPreviewUrl);
 
 export default router;

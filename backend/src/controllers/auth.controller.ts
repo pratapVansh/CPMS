@@ -16,6 +16,7 @@ const COOKIE_OPTIONS = {
 const registerSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
+  rollNo: z.string().min(1).max(50).optional(),
   password: z.string().min(8).max(100),
   cgpa: z.string().transform((val) => val ? parseFloat(val) : undefined).optional(),
   branch: z.string().max(100).optional(),
@@ -41,6 +42,7 @@ export async function register(req: Request, res: Response): Promise<void> {
   const result = await authService.register({
     name: validatedData.name,
     email: validatedData.email,
+    rollNo: validatedData.rollNo,
     password: validatedData.password,
     cgpa: validatedData.cgpa,
     branch: validatedData.branch,
@@ -48,34 +50,40 @@ export async function register(req: Request, res: Response): Promise<void> {
     currentSemester: validatedData.currentSemester,
   });
 
-  // Upload files to Cloudinary if provided
+  // Upload files to Cloudinary if provided and rollNo is available
   try {
-    if (files?.resume?.[0]) {
-      const uploadResult = await cloudinaryService.uploadDocument(
-        files.resume[0].buffer,
-        result.user.id,
-        'resume'
-      );
-      resumeData = { publicId: uploadResult.publicId, url: uploadResult.secureUrl };
-    }
+    // Only upload documents if user has a rollNo
+    if (result.user.rollNo) {
+      if (files?.resume?.[0]) {
+        const uploadResult = await cloudinaryService.uploadDocument(
+          files.resume[0].buffer,
+          result.user.rollNo,
+          'resume'
+        );
+        resumeData = { publicId: uploadResult.publicId, url: uploadResult.secureUrl };
+      }
 
-    if (files?.marksheet?.[0]) {
-      const uploadResult = await cloudinaryService.uploadDocument(
-        files.marksheet[0].buffer,
-        result.user.id,
-        'marksheet'
-      );
-      marksheetData = { publicId: uploadResult.publicId, url: uploadResult.secureUrl };
-    }
+      if (files?.marksheet?.[0]) {
+        const uploadResult = await cloudinaryService.uploadDocument(
+          files.marksheet[0].buffer,
+          result.user.rollNo,
+          'marksheet'
+        );
+        marksheetData = { publicId: uploadResult.publicId, url: uploadResult.secureUrl };
+      }
 
-    // Update user with document info if files were uploaded
-    if (resumeData || marksheetData) {
-      await authService.updateUserDocuments(result.user.id, {
-        resumePublicId: resumeData?.publicId,
-        resumeUrl: resumeData?.url,
-        marksheetPublicId: marksheetData?.publicId,
-        marksheetUrl: marksheetData?.url,
-      });
+      // Update user with document info if files were uploaded
+      if (resumeData || marksheetData) {
+        await authService.updateUserDocuments(result.user.id, {
+          resumePublicId: resumeData?.publicId,
+          resumeUrl: resumeData?.url,
+          marksheetPublicId: marksheetData?.publicId,
+          marksheetUrl: marksheetData?.url,
+        });
+      }
+    } else if (files?.resume?.[0] || files?.marksheet?.[0]) {
+      // If files were provided but no rollNo, log a warning
+      console.warn('Documents uploaded during registration without rollNo. Documents will not be saved.')
     }
   } catch (uploadError) {
     // Log error but don't fail registration

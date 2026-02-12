@@ -188,6 +188,22 @@ export async function getStats(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * Get comprehensive report statistics
+ */
+export async function getReports(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const reports = await adminService.getReportsStats();
+
+  res.json({
+    success: true,
+    data: reports,
+  });
+}
+
+/**
  * Get all students with their documents
  */
 export async function getAllStudents(req: Request, res: Response): Promise<void> {
@@ -198,25 +214,72 @@ export async function getAllStudents(req: Request, res: Response): Promise<void>
   const { page, limit } = paginationSchema.parse(req.query);
   const skip = (page - 1) * limit;
 
+  // Extract filter parameters
+  const { search, branch, minCgpa, year } = req.query;
+
+  // Build where clause with filters
+  const where: any = { role: 'STUDENT' };
+
+  // Search by name, email, or roll number
+  if (search && typeof search === 'string') {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { rollNo: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  // Filter by branch
+  if (branch && typeof branch === 'string') {
+    where.branch = branch;
+  }
+
+  // Filter by minimum CGPA
+  if (minCgpa && typeof minCgpa === 'string') {
+    const cgpaValue = parseFloat(minCgpa);
+    if (!isNaN(cgpaValue)) {
+      where.cgpa = { gte: cgpaValue };
+    }
+  }
+
+  // Filter by current year
+  if (year && typeof year === 'string') {
+    const yearValue = parseInt(year, 10);
+    if (!isNaN(yearValue)) {
+      where.currentYear = yearValue;
+    }
+  }
+
   const [students, total] = await Promise.all([
     prisma.user.findMany({
-      where: { role: 'STUDENT' },
+      where,
       select: {
         id: true,
         name: true,
         email: true,
+        rollNo: true,
         cgpa: true,
         branch: true,
+        currentYear: true,
+        currentSemester: true,
+        status: true,
         resumePublicId: true,
         marksheetPublicId: true,
+        verificationStatus: true,
+        verifiedAt: true,
         createdAt: true,
+        _count: {
+          select: {
+            applications: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       skip,
       take: Math.min(limit, 50),
     }),
     prisma.user.count({
-      where: { role: 'STUDENT' },
+      where,
     }),
   ]);
 
@@ -225,6 +288,7 @@ export async function getAllStudents(req: Request, res: Response): Promise<void>
     ...student,
     hasResume: !!student.resumePublicId,
     hasMarksheet: !!student.marksheetPublicId,
+    documentsVerified: student.verificationStatus === 'VERIFIED',
     resumePublicId: undefined,
     marksheetPublicId: undefined,
   }));
@@ -263,10 +327,18 @@ export async function getStudentProfile(req: Request, res: Response): Promise<vo
       id: true,
       name: true,
       email: true,
+      rollNo: true,
       cgpa: true,
       branch: true,
+      currentYear: true,
+      currentSemester: true,
+      status: true,
       resumePublicId: true,
       marksheetPublicId: true,
+      verificationStatus: true,
+      verifiedBy: true,
+      verifiedAt: true,
+      rejectionReason: true,
       createdAt: true,
       applications: {
         include: {
@@ -287,12 +359,12 @@ export async function getStudentProfile(req: Request, res: Response): Promise<vo
     throw AppError.notFound('Student not found', 'STUDENT_NOT_FOUND');
   }
 
-  // Generate signed URLs if documents exist
+  // Generate preview URLs if documents exist
   const resumeUrl = student.resumePublicId
-    ? cloudinaryService.generateSignedUrl(student.resumePublicId)
+    ? cloudinaryService.generatePreviewUrl(student.resumePublicId)
     : null;
   const marksheetUrl = student.marksheetPublicId
-    ? cloudinaryService.generateSignedUrl(student.marksheetPublicId)
+    ? cloudinaryService.generatePreviewUrl(student.marksheetPublicId)
     : null;
 
   res.json({
@@ -302,8 +374,16 @@ export async function getStudentProfile(req: Request, res: Response): Promise<vo
         id: student.id,
         name: student.name,
         email: student.email,
+        rollNo: student.rollNo,
         cgpa: student.cgpa,
         branch: student.branch,
+        currentYear: student.currentYear,
+        currentSemester: student.currentSemester,
+        status: student.status,
+        verificationStatus: student.verificationStatus,
+        verifiedBy: student.verifiedBy,
+        verifiedAt: student.verifiedAt,
+        rejectionReason: student.rejectionReason,
         createdAt: student.createdAt,
         hasResume: !!student.resumePublicId,
         hasMarksheet: !!student.marksheetPublicId,
@@ -316,9 +396,9 @@ export async function getStudentProfile(req: Request, res: Response): Promise<vo
 }
 
 /**
- * Get a student's document (generates signed URL)
+ * Get a student's document preview URL (for inline viewing)
  */
-export async function getStudentDocument(req: Request, res: Response): Promise<void> {
+export async function getStudentDocumentPreview(req: Request, res: Response): Promise<void> {
   if (!req.user) {
     throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
   }
@@ -328,6 +408,8 @@ export async function getStudentDocument(req: Request, res: Response): Promise<v
   if (type !== 'resume' && type !== 'marksheet') {
     throw AppError.badRequest('Invalid document type', 'INVALID_DOC_TYPE');
   }
+
+  console.log(`👁️  Admin preview request for student ${studentId} ${type}`);
 
   const student = await prisma.user.findFirst({
     where: { 
@@ -352,14 +434,14 @@ export async function getStudentDocument(req: Request, res: Response): Promise<v
     throw AppError.notFound(`Student has no ${type} uploaded`, 'DOCUMENT_NOT_FOUND');
   }
 
-  const signedUrl = cloudinaryService.generateSignedUrl(publicId);
+  const previewUrl = cloudinaryService.generatePreviewUrl(publicId);
 
   res.json({
     success: true,
     data: {
       studentName: student.name,
       type,
-      url: signedUrl,
+      url: previewUrl,
     },
   });
 }
@@ -433,5 +515,91 @@ export async function deleteNotice(req: Request, res: Response): Promise<void> {
   res.json({
     success: true,
     message: 'Notice deleted successfully',
+  });
+}
+
+export async function verifyStudent(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id: studentId } = req.params;
+
+  const student = await prisma.user.findFirst({
+    where: { 
+      id: studentId,
+      role: 'STUDENT',
+    },
+  });
+
+  if (!student) {
+    throw AppError.notFound('Student not found', 'STUDENT_NOT_FOUND');
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: studentId },
+    data: {
+      verificationStatus: 'VERIFIED',
+      verifiedBy: req.user.userId,
+      verifiedAt: new Date(),
+      rejectionReason: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      verificationStatus: true,
+      verifiedAt: true,
+    },
+  });
+
+  res.json({
+    success: true,
+    data: { student: updated },
+    message: 'Student verified successfully',
+  });
+}
+
+export async function rejectStudent(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id: studentId } = req.params;
+  const { reason } = req.body;
+
+  const student = await prisma.user.findFirst({
+    where: { 
+      id: studentId,
+      role: 'STUDENT',
+    },
+  });
+
+  if (!student) {
+    throw AppError.notFound('Student not found', 'STUDENT_NOT_FOUND');
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: studentId },
+    data: {
+      verificationStatus: 'REJECTED',
+      verifiedBy: req.user.userId,
+      verifiedAt: new Date(),
+      rejectionReason: reason || 'Documents rejected',
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      verificationStatus: true,
+      verifiedAt: true,
+      rejectionReason: true,
+    },
+  });
+
+  res.json({
+    success: true,
+    data: { student: updated },
+    message: 'Student verification rejected',
   });
 }

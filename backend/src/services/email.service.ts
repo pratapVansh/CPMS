@@ -6,6 +6,9 @@
  */
 
 import nodemailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import dns from 'dns';
+import { promisify } from 'util';
 import { prisma } from '../config/db';
 import { EmailTemplate } from '../templates/emailTemplates';
 
@@ -89,10 +92,21 @@ export async function isNotificationTypeEnabled(type: string): Promise<boolean> 
 /**
  * Create email transporter with current SMTP settings
  */
+// Custom DNS lookup to force IPv4
+const lookup4 = promisify(dns.lookup);
+const customLookup = async (hostname: string, options: any, callback: any) => {
+  try {
+    const result = await lookup4(hostname, { family: 4, all: false });
+    callback(null, result.address, 4);
+  } catch (error) {
+    callback(error);
+  }
+};
+
 async function createTransporter() {
   const smtpSettings = await getSMTPSettings();
   
-  const transporter = nodemailer.createTransport({
+  const transportOptions = {
     host: smtpSettings.host,
     port: smtpSettings.port,
     secure: smtpSettings.secure,
@@ -104,7 +118,13 @@ async function createTransporter() {
     connectionTimeout: 10000, // 10 seconds
     greetingTimeout: 5000,
     socketTimeout: 20000,
-  });
+    // Force IPv4 to avoid IPv6 network unreachable errors
+    dnsOptions: {
+      lookup: customLookup,
+    },
+  } as SMTPTransport.Options;
+
+  const transporter = nodemailer.createTransport(transportOptions);
 
   return { transporter, smtpSettings };
 }

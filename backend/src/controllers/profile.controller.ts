@@ -28,6 +28,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
       id: true,
       name: true,
       email: true,
+      rollNo: true,
       cgpa: true,
       branch: true,
       currentYear: true,
@@ -36,6 +37,10 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
       resumeUrl: true,
       marksheetPublicId: true,
       marksheetUrl: true,
+      verificationStatus: true,
+      rejectionReason: true,
+      verifiedBy: true,
+      verifiedAt: true,
       createdAt: true,
     },
   });
@@ -44,12 +49,12 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
     throw AppError.notFound('Student not found', 'STUDENT_NOT_FOUND');
   }
 
-  // Generate signed URLs for documents if they exist
-  const resumeSignedUrl = student.resumePublicId
-    ? cloudinaryService.generateSignedUrl(student.resumePublicId)
+  // Generate preview URLs for documents if they exist
+  const resumePreviewUrl = student.resumePublicId
+    ? cloudinaryService.generatePreviewUrl(student.resumePublicId)
     : null;
-  const marksheetSignedUrl = student.marksheetPublicId
-    ? cloudinaryService.generateSignedUrl(student.marksheetPublicId)
+  const marksheetPreviewUrl = student.marksheetPublicId
+    ? cloudinaryService.generatePreviewUrl(student.marksheetPublicId)
     : null;
 
   res.json({
@@ -59,15 +64,18 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
         id: student.id,
         name: student.name,
         email: student.email,
+        rollNo: student.rollNo,
         cgpa: student.cgpa,
         branch: student.branch,
         currentYear: student.currentYear,
         currentSemester: student.currentSemester,
+        verificationStatus: student.verificationStatus,
+        rejectionReason: student.rejectionReason,
         createdAt: student.createdAt,
         hasResume: !!student.resumePublicId,
         hasMarksheet: !!student.marksheetPublicId,
-        resumeUrl: resumeSignedUrl,
-        marksheetUrl: marksheetSignedUrl,
+        resumeUrl: resumePreviewUrl,
+        marksheetUrl: marksheetPreviewUrl,
       },
     },
   });
@@ -85,7 +93,13 @@ export async function updateCpi(req: Request, res: Response): Promise<void> {
 
   const updatedStudent = await prisma.user.update({
     where: { id: req.user.userId },
-    data: { cgpa },
+    data: { 
+      cgpa,
+      verificationStatus: 'PENDING',
+      verifiedBy: null,
+      verifiedAt: null,
+      rejectionReason: null,
+    },
     select: {
       id: true,
       cgpa: true,
@@ -148,16 +162,34 @@ export async function uploadResume(req: Request, res: Response): Promise<void> {
 
   const userId = req.user.userId;
 
-  // Get current resume public_id to delete later
+  console.log(`📝 Resume upload request from user: ${userId}`);
+
+  // Get current user data
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { resumePublicId: true },
+    select: { resumePublicId: true, rollNo: true, email: true },
   });
+
+  if (!currentUser) {
+    console.error('❌ User not found:', userId);
+    throw AppError.notFound('User not found', 'USER_NOT_FOUND');
+  }
+
+  console.log(`   User email: ${currentUser.email}`);
+  console.log(`   Roll number: ${currentUser.rollNo || 'NOT SET'}`);
+
+  if (!currentUser.rollNo) {
+    console.error('❌ Roll number not set for user:', userId);
+    throw AppError.badRequest(
+      'Roll number is required to upload documents. Please contact your administrator to set your roll number.',
+      'NO_ROLL_NUMBER'
+    );
+  }
 
   // Upload new resume to Cloudinary
   const uploadResult = await cloudinaryService.uploadDocument(
     req.file.buffer,
-    userId,
+    currentUser.rollNo,
     'resume'
   );
 
@@ -167,21 +199,26 @@ export async function uploadResume(req: Request, res: Response): Promise<void> {
     data: {
       resumePublicId: uploadResult.publicId,
       resumeUrl: uploadResult.secureUrl,
+      verificationStatus: 'PENDING',
+      verifiedBy: null,
+      verifiedAt: null,
+      rejectionReason: null,
     },
   });
 
   // Delete old resume from Cloudinary (after successful DB update)
-  if (currentUser?.resumePublicId) {
+  // Only delete if it's a different file (different public_id)
+  if (currentUser?.resumePublicId && currentUser.resumePublicId !== uploadResult.publicId) {
     await cloudinaryService.deleteDocument(currentUser.resumePublicId);
   }
 
-  // Generate signed URL for immediate use
-  const signedUrl = cloudinaryService.generateSignedUrl(uploadResult.publicId);
+  // Generate preview URL for immediate use
+  const previewUrl = cloudinaryService.generatePreviewUrl(uploadResult.publicId);
 
   res.json({
     success: true,
     data: {
-      resumeUrl: signedUrl,
+      resumeUrl: previewUrl,
     },
     message: 'Resume uploaded successfully',
   });
@@ -201,16 +238,34 @@ export async function uploadMarksheet(req: Request, res: Response): Promise<void
 
   const userId = req.user.userId;
 
-  // Get current marksheet public_id to delete later
+  console.log(`📝 Marksheet upload request from user: ${userId}`);
+
+  // Get current user data
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { marksheetPublicId: true },
+    select: { marksheetPublicId: true, rollNo: true, email: true },
   });
+
+  if (!currentUser) {
+    console.error('❌ User not found:', userId);
+    throw AppError.notFound('User not found', 'USER_NOT_FOUND');
+  }
+
+  console.log(`   User email: ${currentUser.email}`);
+  console.log(`   Roll number: ${currentUser.rollNo || 'NOT SET'}`);
+
+  if (!currentUser.rollNo) {
+    console.error('❌ Roll number not set for user:', userId);
+    throw AppError.badRequest(
+      'Roll number is required to upload documents. Please contact your administrator to set your roll number.',
+      'NO_ROLL_NUMBER'
+    );
+  }
 
   // Upload new marksheet to Cloudinary
   const uploadResult = await cloudinaryService.uploadDocument(
     req.file.buffer,
-    userId,
+    currentUser.rollNo,
     'marksheet'
   );
 
@@ -220,21 +275,26 @@ export async function uploadMarksheet(req: Request, res: Response): Promise<void
     data: {
       marksheetPublicId: uploadResult.publicId,
       marksheetUrl: uploadResult.secureUrl,
+      verificationStatus: 'PENDING',
+      verifiedBy: null,
+      verifiedAt: null,
+      rejectionReason: null,
     },
   });
 
   // Delete old marksheet from Cloudinary (after successful DB update)
-  if (currentUser?.marksheetPublicId) {
+  // Only delete if it's a different file (different public_id)
+  if (currentUser?.marksheetPublicId && currentUser.marksheetPublicId !== uploadResult.publicId) {
     await cloudinaryService.deleteDocument(currentUser.marksheetPublicId);
   }
 
-  // Generate signed URL for immediate use
-  const signedUrl = cloudinaryService.generateSignedUrl(uploadResult.publicId);
+  // Generate preview URL for immediate use
+  const previewUrl = cloudinaryService.generatePreviewUrl(uploadResult.publicId);
 
   res.json({
     success: true,
     data: {
-      marksheetUrl: signedUrl,
+      marksheetUrl: previewUrl,
     },
     message: 'Marksheet uploaded successfully',
   });
@@ -315,10 +375,9 @@ export async function deleteMarksheet(req: Request, res: Response): Promise<void
 }
 
 /**
- * Get document download URL (for viewing)
- * This endpoint generates a fresh signed URL
+ * Get document preview URL (inline viewing)
  */
-export async function getDocumentUrl(req: Request, res: Response): Promise<void> {
+export async function getDocumentPreviewUrl(req: Request, res: Response): Promise<void> {
   if (!req.user) {
     throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
   }
@@ -328,6 +387,8 @@ export async function getDocumentUrl(req: Request, res: Response): Promise<void>
   if (type !== 'resume' && type !== 'marksheet') {
     throw AppError.badRequest('Invalid document type', 'INVALID_DOC_TYPE');
   }
+
+  console.log(`👁️  Preview URL request for ${type} from user: ${req.user.userId}`);
 
   const user = await prisma.user.findUnique({
     where: { id: req.user.userId },
@@ -347,12 +408,12 @@ export async function getDocumentUrl(req: Request, res: Response): Promise<void>
     throw AppError.notFound(`No ${type} found`, 'DOCUMENT_NOT_FOUND');
   }
 
-  const signedUrl = cloudinaryService.generateSignedUrl(publicId);
+  const previewUrl = cloudinaryService.generatePreviewUrl(publicId);
 
   res.json({
     success: true,
     data: {
-      url: signedUrl,
+      url: previewUrl,
       type,
     },
   });

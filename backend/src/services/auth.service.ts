@@ -14,6 +14,7 @@ import { notifyStudentRegistration } from './notification.service';
 export interface RegisterInput {
   name: string;
   email: string;
+  rollNo?: string;
   password: string;
   cgpa?: number;
   branch?: string;
@@ -37,12 +38,13 @@ export interface AuthResponse {
     name: string;
     email: string;
     role: Role;
+    rollNo: string | null;
   };
   tokens: AuthTokens;
 }
 
 export async function register(input: RegisterInput): Promise<AuthResponse> {
-  const { name, email, password, cgpa, branch, currentYear, currentSemester } = input;
+  const { name, email, rollNo, password, cgpa, branch, currentYear, currentSemester } = input;
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -52,12 +54,24 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
     throw AppError.conflict('User with this email already exists', 'EMAIL_EXISTS');
   }
 
+  // Check if rollNo already exists (if provided)
+  if (rollNo) {
+    const existingRollNo = await prisma.user.findUnique({
+      where: { rollNo },
+    });
+
+    if (existingRollNo) {
+      throw AppError.conflict('User with this roll number already exists', 'ROLLNO_EXISTS');
+    }
+  }
+
   const hashedPassword = await hashPassword(password);
 
   const user = await prisma.user.create({
     data: {
       name,
       email,
+      rollNo,
       password: hashedPassword,
       role: Role.STUDENT,
       cgpa,
@@ -81,6 +95,7 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
       name: user.name,
       email: user.email,
       role: user.role,
+      rollNo: user.rollNo,
     },
     tokens,
   };
@@ -115,6 +130,7 @@ export async function login(input: LoginInput): Promise<AuthResponse> {
       name: user.name,
       email: user.email,
       role: user.role,
+      rollNo: user.rollNo,
     },
     tokens,
   };

@@ -69,7 +69,7 @@ export default function AuditLogsPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <InstitutionalNavbar user={user!} role="superadmin" />
-
+      <div className="pt-28 md:pt-16 flex-1 flex flex-col">
       <PageContainer>
         <div className="mb-6">
           <PageTitle description="Track all system activities and changes">
@@ -132,8 +132,8 @@ export default function AuditLogsPage() {
           )}
         </Card>
       </PageContainer>
-
       <AppFooter />
+      </div>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { setAccessToken, saveUser, User } from '@/lib/auth';
 import { institution } from '@/lib/design-system';
 import { Card, Button, Input, Select, FormGroup, FormRow, Checkbox, AppFooter } from '@/components/common';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 const BRANCHES = [
   { value: 'Computer Science', label: 'Computer Science' },
@@ -47,6 +47,7 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    rollNo: '',
     password: '',
     confirmPassword: '',
     cgpa: '',
@@ -110,6 +111,7 @@ export default function RegisterPage() {
       const submitData = new FormData();
       submitData.append('name', formData.name);
       submitData.append('email', formData.email);
+      if (formData.rollNo) submitData.append('rollNo', formData.rollNo);
       submitData.append('password', formData.password);
       if (formData.cgpa) submitData.append('cgpa', formData.cgpa);
       if (formData.branch) submitData.append('branch', formData.branch);
@@ -193,6 +195,14 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="you@rgipt.ac.in"
                   required
+                />
+
+                <Input
+                  label="Roll Number"
+                  name="rollNo"
+                  value={formData.rollNo}
+                  onChange={handleChange}
+                  placeholder="Enter your roll number (e.g., 21CS001)"
                 />
 
                 <FormRow>

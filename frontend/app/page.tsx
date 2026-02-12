@@ -21,14 +21,6 @@ export default function Home() {
                 <p className="text-xs text-gray-600">{institution.systemFullName}</p>
               </div>
             </div>
-            <nav className="flex items-center gap-4">
-              <Link href="/login" className="text-sm text-blue-600 hover:underline">
-                Sign In
-              </Link>
-              <LinkButton href="/register" size="sm">
-                Register
-              </LinkButton>
-            </nav>
           </div>
         </div>
       </header>
@@ -45,11 +37,11 @@ export default function Home() {
               Official placement portal for students and the placement cell
             </p>
             <div className="flex justify-center gap-3">
-              <LinkButton href="/login" leftIcon={<GraduationCap className="w-4 h-4" />}>
+              <LinkButton href="/login?type=student" leftIcon={<GraduationCap className="w-4 h-4" />}>
                 Student Login
               </LinkButton>
               <LinkButton
-                href="/login"
+                href="/login?type=admin"
                 variant="secondary"
                 leftIcon={<Users className="w-4 h-4" />}
               >

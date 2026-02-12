@@ -1,6 +1,8 @@
 import { prisma } from '../config/db';
 import { AppError } from '../utils/AppError';
 import crypto from 'crypto';
+import dns from 'dns';
+import { promisify } from 'util';
 
 const ENCRYPTION_KEY = process.env.SETTINGS_ENCRYPTION_KEY || 
 'cpms-default-key-change-in-production-32'; 
@@ -100,6 +102,17 @@ export async function testSMTPConnection(data: SMTPSettings): Promise<{ success:
     // Import nodemailer for testing
     const nodemailer = require('nodemailer');
     
+    // Custom DNS lookup to force IPv4
+    const lookup4 = promisify(dns.lookup);
+    const customLookup = async (hostname: string, options: any, callback: any) => {
+      try {
+        const result = await lookup4(hostname, { family: 4, all: false });
+        callback(null, result.address, 4);
+      } catch (error) {
+        callback(error);
+      }
+    };
+    
     // Create transporter with provided settings
     const transporter = nodemailer.createTransport({
       host: data.smtpHost,
@@ -111,6 +124,10 @@ export async function testSMTPConnection(data: SMTPSettings): Promise<{ success:
       },
       connectionTimeout: 10000,
       greetingTimeout: 5000,
+      // Force IPv4 to avoid IPv6 network errors
+      dnsOptions: {
+        lookup: customLookup,
+      },
     });
     
     // Actually verify the connection
