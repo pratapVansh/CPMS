@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
 
     "create:superadmin": "ts-node src/scripts/createSuperAdmin.ts",
+    "test:cloudinary": "ts-node src/scripts/testCloudinary.ts",
 
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

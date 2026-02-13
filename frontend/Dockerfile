@@ -11,7 +11,7 @@ RUN npm ci
 COPY . .
 
 # Set build-time environment variables
-ARG NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # Build the Next.js app

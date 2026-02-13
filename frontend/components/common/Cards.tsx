@@ -50,7 +50,7 @@ export function CardHeader({ title, subtitle, action }: CardHeaderProps) {
 // STAT CARD - Consistent styling with icon
 // =============================================================================
 
-type StatColor = 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray';
+type StatColor = 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray' | 'orange';
 
 interface StatCardProps {
   title: string;
@@ -68,6 +68,7 @@ const colorClasses: Record<StatColor, { bg: string; text: string }> = {
   red: { bg: 'bg-red-100', text: 'text-red-600' },
   purple: { bg: 'bg-purple-100', text: 'text-purple-600' },
   gray: { bg: 'bg-gray-100', text: 'text-gray-600' },
+  orange: { bg: 'bg-orange-100', text: 'text-orange-600' },
 };
 
 export function StatCard({ title, value, icon, color = 'blue', subtitle }: StatCardProps) {

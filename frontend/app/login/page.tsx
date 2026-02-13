@@ -1,15 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { GraduationCap, AlertCircle } from 'lucide-react';
 import { login } from '@/lib/auth';
 import { institution } from '@/lib/design-system';
 import { Card, Button, Input, FormGroup, AppFooter } from '@/components/common';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const loginType = searchParams.get('type') || 'student';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -98,14 +100,16 @@ export default function LoginPage() {
               </FormGroup>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-center text-sm text-gray-600">
-                Don&apos;t have an account?{' '}
-                <Link href="/register" className="text-blue-600 hover:underline font-medium">
-                  Register here
-                </Link>
-              </p>
-            </div>
+            {loginType === 'student' && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-center text-sm text-gray-600">
+                  Don&apos;t have an account?{' '}
+                  <Link href="/register" className="text-blue-600 hover:underline font-medium">
+                    Register here
+                  </Link>
+                </p>
+              </div>
+            )}
           </Card>
 
           <p className="mt-6 text-center text-xs text-gray-500">
@@ -116,5 +120,17 @@ export default function LoginPage() {
 
       <AppFooter />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

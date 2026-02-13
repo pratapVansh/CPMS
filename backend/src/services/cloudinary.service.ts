@@ -10,6 +10,18 @@ cloudinary.config({
   secure: true,
 });
 
+// Validate Cloudinary configuration on startup
+if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+  console.error('❌ CLOUDINARY CONFIGURATION ERROR: Missing credentials');
+  console.error('   Please check your .env file for:');
+  console.error('   - CLOUDINARY_CLOUD_NAME');
+  console.error('   - CLOUDINARY_API_KEY');
+  console.error('   - CLOUDINARY_API_SECRET');
+} else {
+  console.log('✅ Cloudinary configured successfully');
+  console.log(`   Cloud Name: ${env.CLOUDINARY_CLOUD_NAME}`);
+}
+
 export interface UploadResult {
   publicId: string;
   secureUrl: string;
@@ -20,40 +32,76 @@ export type DocumentType = 'resume' | 'marksheet';
 /**
  * Upload a file buffer to Cloudinary
  * @param buffer - File buffer
- * @param userId - User ID for folder organization
+ * @param rollNo - Student roll number for filename
  * @param docType - Type of document (resume or marksheet)
  * @returns Upload result with public_id and secure_url
  */
 export async function uploadDocument(
   buffer: Buffer,
-  userId: string,
+  rollNo: string,
   docType: DocumentType
 ): Promise<UploadResult> {
-  return new Promise((resolve, reject) => {
-    const folder = `cpms/${docType}s`;
-    const publicId = `${folder}/${userId}_${docType}_${Date.now()}`;
+  // Validate inputs
+  if (!buffer || buffer.length === 0) {
+    console.error('❌ Upload Error: Empty buffer provided');
+    throw AppError.badRequest('File buffer is empty', 'EMPTY_BUFFER');
+  }
 
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        resource_type: 'raw',
-        public_id: publicId,
-        folder: undefined, // We include folder in public_id
-        allowed_formats: ['pdf'],
-        type: 'private', // Make uploads private/secure
-        access_mode: 'authenticated',
-        overwrite: true,
-      },
+  if (!rollNo || rollNo.trim() === '') {
+    console.error('❌ Upload Error: Roll number is required');
+    throw AppError.badRequest('Roll number is required for file upload', 'MISSING_ROLL_NO');
+  }
+
+  if (!['resume', 'marksheet'].includes(docType)) {
+    console.error('❌ Upload Error: Invalid document type:', docType);
+    throw AppError.badRequest('Invalid document type', 'INVALID_DOC_TYPE');
+  }
+
+  // Check Cloudinary configuration
+  if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+    console.error('❌ Cloudinary credentials not configured');
+    throw AppError.internal('Cloud storage not configured. Please contact administrator.', 'CLOUDINARY_NOT_CONFIGURED');
+  }
+
+  return new Promise((resolve, reject) => {
+    // Clean filename format: rollno_resume or rollno_marksheet
+    const publicId = `cpms/${rollNo}_${docType}`;
+
+    console.log(`📤 Uploading ${docType} for roll number: ${rollNo}`);
+    console.log(`   File size: ${(buffer.length / 1024).toFixed(2)} KB`);
+    console.log(`   Public ID: ${publicId}`);
+
+      const uploadStream = cloudinary.uploader.upload_stream(
+    {
+      resource_type: 'image',
+      public_id: publicId,
+      allowed_formats: ['pdf'],
+      unique_filename: false,
+      overwrite: true,
+    },
       (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
         if (error) {
-          console.error('Cloudinary upload error:', error);
-          reject(AppError.internal('Failed to upload file to cloud storage', 'UPLOAD_FAILED'));
+          console.error('❌ Cloudinary upload error:', {
+            message: error.message,
+            http_code: error.http_code,
+            name: error.name,
+          });
+          reject(AppError.internal(
+            `Failed to upload ${docType}: ${error.message || 'Unknown error'}`,
+            'CLOUDINARY_UPLOAD_FAILED'
+          ));
           return;
         }
 
         if (!result) {
+          console.error('❌ No result from Cloudinary');
           reject(AppError.internal('No result from cloud storage', 'UPLOAD_NO_RESULT'));
           return;
         }
+
+        console.log(`✅ Successfully uploaded ${docType}`);
+        console.log(`   Public ID: ${result.public_id}`);
+        console.log(`   Secure URL: ${result.secure_url}`);
 
         resolve({
           publicId: result.public_id,
@@ -74,7 +122,6 @@ export async function deleteDocument(publicId: string): Promise<void> {
   try {
     const result = await cloudinary.uploader.destroy(publicId, {
       resource_type: 'raw',
-      type: 'private',
     });
 
     if (result.result !== 'ok' && result.result !== 'not found') {
@@ -88,21 +135,24 @@ export async function deleteDocument(publicId: string): Promise<void> {
 }
 
 /**
- * Generate a signed URL for private document access
+ * Generate URL for document viewing (inline preview)
  * @param publicId - The public_id of the file
- * @param expiresIn - Expiration time in seconds (default: 1 hour)
- * @returns Signed URL
+ * @returns URL for inline preview
  */
-export function generateSignedUrl(publicId: string, expiresIn: number = 3600): string {
-  const timestamp = Math.floor(Date.now() / 1000) + expiresIn;
-  
-  return cloudinary.url(publicId, {
-    resource_type: 'raw',
-    type: 'private',
-    sign_url: true,
-    expires_at: timestamp,
+export function generatePreviewUrl(publicId: string): string {
+  // For raw files, generate the base URL and add fl_attachment query parameter
+  const baseUrl = cloudinary.url(publicId, {
+    resource_type: 'image',
     secure: true,
+    type: 'upload',
   });
+  
+  // Add fl_attachment=false to display inline in browser
+  const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}fl_attachment=false`;
+  
+  console.log(`🔗 Generated preview URL for ${publicId}`);
+  console.log(`   URL: ${url}`);
+  return url;
 }
 
 /**

@@ -97,9 +97,9 @@ export default function StudentNoticesPage() {
   if (!user) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <InstitutionalNavbar user={user} role="student" />
-      <div className="pt-16 md:pt-16">
+      <div className="pt-28 md:pt-16 flex-1 flex flex-col">
         <PageContainer>
           <PageTitle description="Stay updated with placement notices and announcements">Notices & Announcements</PageTitle>
 

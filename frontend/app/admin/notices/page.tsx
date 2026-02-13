@@ -239,9 +239,9 @@ export default function NoticesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <InstitutionalNavbar user={user} role="admin" />
-      <div className="pt-16 md:pt-16">
+      <div className="pt-28 md:pt-16 flex-1 flex flex-col">
         <PageContainer>
           <div className="flex justify-between items-center mb-6">
             <PageTitle description="Manage placement notices and announcements">Notices Management</PageTitle>

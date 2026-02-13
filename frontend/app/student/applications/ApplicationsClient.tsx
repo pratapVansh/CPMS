@@ -89,7 +89,10 @@ export default function ApplicationsClient() {
       fetchApplications(1);
       router.replace('/student/applications');
     } else {
-      setMessage({ type: 'error', text: response.error?.message || 'Failed to apply' });
+      const errorMsg = response.error?.code === 'NOT_VERIFIED'
+        ? 'Your documents are not verified yet. To know more, contact the T&P office.'
+        : response.error?.message || 'Failed to apply';
+      setMessage({ type: 'error', text: errorMsg });
     }
 
     setApplying(false);
@@ -132,9 +135,9 @@ export default function ApplicationsClient() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <InstitutionalNavbar user={user} role="student" />
-      <div className="pt-16 md:pt-16">
+      <div className="pt-28 md:pt-16 flex-1 flex flex-col">
       <PageContainer>
         <PageTitle description="Track the status of all your placement applications">My Applications</PageTitle>
 
@@ -233,7 +236,6 @@ export default function ApplicationsClient() {
           </div>
         </Card>
       </PageContainer>
-
       <AppFooter />
       </div>
     </div>

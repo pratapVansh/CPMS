@@ -164,9 +164,9 @@ export default function CreateCompanyPage() {
   if (!user) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <InstitutionalNavbar user={user} role="admin" />
-      <div className="pt-16 md:pt-16">
+      <div className="pt-28 md:pt-16 flex-1 flex flex-col">
       <PageContainer>
         <div className="max-w-2xl mx-auto">
           <PageTitle description="Add a new company placement drive">Create Placement Drive</PageTitle>
@@ -430,7 +430,6 @@ export default function CreateCompanyPage() {
           </Card>
         </div>
       </PageContainer>
-
       <AppFooter />
       </div>
     </div>

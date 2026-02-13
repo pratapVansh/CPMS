@@ -183,9 +183,9 @@ export default function SuperAdminPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <InstitutionalNavbar user={user} role="superadmin" />
-      <div className="pt-16 md:pt-16">
+      <div className="pt-28 md:pt-16 flex-1 flex flex-col">
       <PageContainer>
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-300 text-red-700 rounded text-sm">

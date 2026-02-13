@@ -75,3 +75,36 @@ export const requireSuperAdmin = requireRole(Role.SUPER_ADMIN);
 export const requireAdmin = requireRole(Role.SUPER_ADMIN, Role.ADMIN);
 export const requireStudent = requireRole(Role.STUDENT);
 export const requireAnyAdmin = requireRole(Role.SUPER_ADMIN, Role.ADMIN);
+
+export async function requireVerifiedStudent(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('Not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  if (req.user.role !== Role.STUDENT) {
+    next();
+    return;
+  }
+
+  const student = await prisma.user.findUnique({
+    where: { id: req.user.userId },
+    select: { verificationStatus: true },
+  });
+
+  if (!student) {
+    throw AppError.unauthorized('User not found', 'USER_NOT_FOUND');
+  }
+
+  if (student.verificationStatus !== 'VERIFIED') {
+    throw AppError.forbidden(
+      'Your documents are not verified yet. To know more, contact the T&P office.',
+      'NOT_VERIFIED'
+    );
+  }
+
+  next();
+}
