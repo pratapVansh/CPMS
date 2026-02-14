@@ -91,3 +91,65 @@ export async function getAuditLogs(req: Request, res: Response) {
     data: { logs },
   });
 }
+
+// ========== Super Admin Management ==========
+
+const createSuperAdminSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(100),
+});
+
+/**
+ * Create a new Super Admin
+ * POST /api/v1/superadmin/super-admins
+ */
+export async function createSuperAdmin(req: Request, res: Response) {
+  const data = createSuperAdminSchema.parse(req.body);
+  
+  const superAdmin = await superadminService.createSuperAdmin(
+    data,
+    req.user!.userId
+  );
+
+  res.status(201).json({
+    success: true,
+    data: { superAdmin },
+    message: 'Super Admin created successfully',
+  });
+}
+
+/**
+ * Delete a Super Admin permanently
+ * DELETE /api/v1/superadmin/super-admins/:id
+ */
+export async function deleteSuperAdmin(req: Request, res: Response) {
+  const { id } = req.params;
+
+  if (!id) {
+    throw new Error('Super Admin ID is required');
+  }
+
+  const result = await superadminService.deleteSuperAdmin(
+    id,
+    req.user!.userId
+  );
+
+  res.json({
+    success: true,
+    data: result,
+  });
+}
+
+/**
+ * Get all Super Admins with metadata
+ * GET /api/v1/superadmin/super-admins
+ */
+export async function getSuperAdmins(req: Request, res: Response) {
+  const result = await superadminService.getSuperAdmins();
+
+  res.json({
+    success: true,
+    data: result,
+  });
+}
