@@ -8,6 +8,7 @@ const router = Router();
 router.use(requireAuth);
 router.use(requireSuperAdmin);
 
+// Admin Management Routes
 router.post('/admins', superadminController.createAdmin);
 router.get('/admins', superadminController.getAdmins);
 router.get('/admins/:id', superadminController.getAdmin);
@@ -15,6 +16,12 @@ router.patch('/admins/:id', superadminController.updateAdmin);
 router.patch('/admins/:id/status', superadminController.disableAdmin);
 router.delete('/admins/:id', superadminController.deleteAdmin);
 
+// Super Admin Management Routes
+router.get('/super-admins', superadminController.getSuperAdmins);
+router.post('/super-admins', superadminController.createSuperAdmin);
+router.delete('/super-admins/:id', superadminController.deleteSuperAdmin);
+
+// Audit Logs
 router.get('/audit-logs', superadminController.getAuditLogs);
 
 //settings:
