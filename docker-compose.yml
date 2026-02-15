@@ -71,11 +71,10 @@ services:
   # BullMQ Worker
   worker:
     build:
-      context: ./backend
+      context: ./worker
       dockerfile: Dockerfile
     container_name: cpms-worker
     restart: unless-stopped
-    command: ["node", "dist/jobs/email.worker.js"]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-cpms}?schema=public}
@@ -88,30 +87,14 @@ services:
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?CLOUDINARY_API_SECRET is required}
     networks:
       - cpms-network
-    
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # Frontend (Next.js)
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${DOCKER_NEXT_PUBLIC_API_URL:-http://localhost:4001/api/v1}
-    container_name: cpms-frontend
-    restart: unless-stopped
-    environment:
-      NODE_ENV: ${NODE_ENV:-production}
-    ports:
-      - "${DOCKER_FRONTEND_PORT:-3001}:3000"  # Docker uses 3001, internal uses 3000
-    networks:
-      - cpms-network
-    depends_on:
-      - api
+  # Frontend deployed separately on Vercel
+  # Frontend configuration removed - using Vercel for production
 
 networks:
   cpms-network:

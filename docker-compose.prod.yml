@@ -1,0 +1,61 @@
+# Production Docker Compose for EC2 Deployment
+# This replaces local PostgreSQL and Redis with AWS RDS and ElastiCache/EC2 Redis
+
+services:
+  # Backend API
+  api:
+    image: ${DOCKER_REGISTRY}/cpms-api:${IMAGE_TAG:-latest}
+    container_name: cpms-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      # Use external RDS database
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      # Use external Redis (ElastiCache or EC2 Redis)
+      REDIS_HOST: ${REDIS_HOST:-127.0.0.1}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?CLOUDINARY_CLOUD_NAME is required}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?CLOUDINARY_API_KEY is required}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?CLOUDINARY_API_SECRET is required}
+    ports:
+      - "5000:5000"
+    networks:
+      - cpms-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # BullMQ Worker
+  worker:
+    image: ${DOCKER_REGISTRY}/cpms-worker:${IMAGE_TAG:-latest}
+    container_name: cpms-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Use external RDS database
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      # Use external Redis
+      REDIS_HOST: ${REDIS_HOST:-127.0.0.1}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?CLOUDINARY_CLOUD_NAME is required}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?CLOUDINARY_API_KEY is required}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?CLOUDINARY_API_SECRET is required}
+    networks:
+      - cpms-network
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  cpms-network:
+    driver: bridge
