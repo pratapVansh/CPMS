@@ -104,8 +104,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: pratapvansh
+          password: ${{ secrets.GH_PAT }}
 
       - name: Set image tag
         id: vars
@@ -175,7 +175,7 @@ jobs:
             git pull origin ${{ github.ref_name }}
             
             # Login to GitHub Container Registry
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo ${{ secrets.GH_PAT }} | docker login ghcr.io -u pratapvansh --password-stdin
             
             # Pull latest images
             export DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }}
