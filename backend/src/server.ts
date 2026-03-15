@@ -3,12 +3,10 @@ import { env } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/db';
 import { disconnectRedis } from './config/redis';
 import { closeEmailQueue } from './queues/email.queue';
-import { closeEmailWorker } from './jobs/email.worker';
 
 const server = app.listen(env.PORT, async () => {
   await connectDatabase();
   console.log(`🚀 Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
-  console.log(`📧 Email worker started`);
 });
 
 // Graceful shutdown
@@ -17,8 +15,7 @@ const gracefulShutdown = async (signal: string) => {
   
   server.close(async () => {
     console.log('🛑 HTTP server closed');
-    
-    await closeEmailWorker();
+
     await closeEmailQueue();
     await disconnectDatabase();
     await disconnectRedis();

@@ -334,7 +334,9 @@ export async function getStudentProfile(req: Request, res: Response): Promise<vo
       currentSemester: true,
       status: true,
       resumePublicId: true,
+      resumeUrl: true,
       marksheetPublicId: true,
+      marksheetUrl: true,
       verificationStatus: true,
       verifiedBy: true,
       verifiedAt: true,
@@ -359,12 +361,12 @@ export async function getStudentProfile(req: Request, res: Response): Promise<vo
     throw AppError.notFound('Student not found', 'STUDENT_NOT_FOUND');
   }
 
-  // Generate preview URLs if documents exist
+  // Generate preview URLs if documents exist, passing the stored URL for cache-busting
   const resumeUrl = student.resumePublicId
-    ? cloudinaryService.generatePreviewUrl(student.resumePublicId)
+    ? cloudinaryService.generatePreviewUrl(student.resumePublicId, student.resumeUrl ?? undefined)
     : null;
   const marksheetUrl = student.marksheetPublicId
-    ? cloudinaryService.generatePreviewUrl(student.marksheetPublicId)
+    ? cloudinaryService.generatePreviewUrl(student.marksheetPublicId, student.marksheetUrl ?? undefined)
     : null;
 
   res.json({
@@ -420,7 +422,9 @@ export async function getStudentDocumentPreview(req: Request, res: Response): Pr
       id: true,
       name: true,
       resumePublicId: true,
+      resumeUrl: true,
       marksheetPublicId: true,
+      marksheetUrl: true,
     },
   });
 
@@ -429,12 +433,13 @@ export async function getStudentDocumentPreview(req: Request, res: Response): Pr
   }
 
   const publicId = type === 'resume' ? student.resumePublicId : student.marksheetPublicId;
+  const storedUrl = type === 'resume' ? student.resumeUrl : student.marksheetUrl;
 
   if (!publicId) {
     throw AppError.notFound(`Student has no ${type} uploaded`, 'DOCUMENT_NOT_FOUND');
   }
 
-  const previewUrl = cloudinaryService.generatePreviewUrl(publicId);
+  const previewUrl = cloudinaryService.generatePreviewUrl(publicId, storedUrl ?? undefined);
 
   res.json({
     success: true,

@@ -14,7 +14,7 @@ declare global {
 
 export async function requireAuth(
   req: Request,
-  _res: Response,
+  res: Response,
   next: NextFunction
 ): Promise<void> {
   const authHeader = req.headers.authorization;
@@ -47,6 +47,8 @@ export async function requireAuth(
       name: user.name,
       role: user.role,
     };
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
     next();
   } catch (error) {

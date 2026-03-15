@@ -85,28 +85,31 @@ async function shouldSendNotification(eventType: string, channel: string): Promi
 export async function sendNotification(payload: NotificationPayload): Promise<void> {
   try {
     const channels = payload.channels || ['EMAIL'];
-    
-    // Check if any channel is enabled for this event
-    const enabledChannels = await Promise.all(
-      channels.map(async (channel) => {
-        const enabled = await shouldSendNotification(payload.eventType, channel);
-        return enabled ? channel : null;
-      })
-    );
-    
-    const validChannels = enabledChannels.filter(c => c !== null) as Array<'EMAIL' | 'SMS' | 'PUSH'>;
-    
+
+    // Single DB read for all channel + event checks (replaces N separate findFirst calls)
+    const settings = await prisma.systemSettings.findFirst();
+
+    const validChannels = channels.filter((channel) => {
+      if (!settings) return true;
+      if (channel === 'EMAIL' && !settings.emailNotifications) return false;
+      if (channel === 'SMS' && !settings.smsNotifications) return false;
+      if (channel === 'PUSH' && !settings.pushNotifications) return false;
+      if (payload.eventType.includes('APPLICATION') && !settings.notifyApplicationStatus) return false;
+      if (payload.eventType.includes('DRIVE') && !settings.notifyNewDrive) return false;
+      return true;
+    });
+
     if (validChannels.length === 0) {
       console.log(`[NOTIFICATION] All channels disabled for ${payload.eventType}`);
       return;
     }
-    
+
     // Queue the notification job
     await addNotificationJob({
       ...payload,
       channels: validChannels,
     });
-    
+
     console.log(`[NOTIFICATION] Queued: ${payload.eventType} for user ${payload.userId}`);
   } catch (error) {
     console.error('[NOTIFICATION] Error queuing notification:', error);
@@ -467,16 +470,15 @@ export async function notifyBulkApplicationStatusChange(
   }
   
   console.log(`[NOTIFICATION] Processing ${validUpdates.length} bulk status updates`);
-  
-  // Process notifications sequentially to avoid overwhelming the queue
-  for (const update of validUpdates) {
-    try {
-      await notifyApplicationStatusChange(update.applicationId);
-    } catch (error) {
-      console.error(`[NOTIFICATION] Failed to notify for application ${update.applicationId}:`, error);
-      // Continue with other notifications even if one fails
-    }
-  }
-  
+
+  // Process all notifications in parallel — each job is independently queued
+  await Promise.all(
+    validUpdates.map((update) =>
+      notifyApplicationStatusChange(update.applicationId).catch((error) => {
+        console.error(`[NOTIFICATION] Failed to notify for application ${update.applicationId}:`, error);
+      })
+    )
+  );
+
   console.log('[NOTIFICATION] Bulk notification processing complete');
 }

@@ -7,6 +7,7 @@ import {
   handleMulterError,
   validatePdfContent,
 } from '../middleware/upload.middleware';
+import { uploadLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.patch('/year-semester', profileController.updateYearSemester);
 // Resume upload
 router.post(
   '/resume',
+  uploadLimiter,
   uploadResume,
   handleMulterError,
   validatePdfContent,
@@ -32,6 +34,7 @@ router.delete('/resume', profileController.deleteResume);
 // Marksheet upload
 router.post(
   '/marksheet',
+  uploadLimiter,
   uploadMarksheet,
   handleMulterError,
   validatePdfContent,

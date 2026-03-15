@@ -8,6 +8,7 @@ import 'express-async-errors';
 import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
+import { globalLimiter } from './middleware/rateLimiter';
 
 // Routes
 import authRoutes from './routes/auth.routes';
@@ -24,10 +25,11 @@ app.use(cors({
   origin: env.CORS_ORIGIN.split(',').map(origin => origin.trim()),
   credentials: true,
 }));
+app.use(globalLimiter);
 
 // Request parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
 // Logging

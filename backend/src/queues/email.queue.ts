@@ -6,6 +6,13 @@ export interface EmailJobData {
   eventType: string;
   data: any;
   priority?: number;
+  // For CAMPAIGN_EMAIL jobs: pre-rendered content sent directly to SMTP
+  messageLogId?: string;
+  directEmail?: {
+    to: string;
+    subject: string;
+    html: string;
+  };
 }
 
 export const emailQueue = new Queue<EmailJobData>('emailQueue', {

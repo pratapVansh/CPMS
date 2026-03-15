@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Building2,
@@ -18,6 +17,8 @@ import {
 } from 'lucide-react';
 import { Navbar, Sidebar, type SidebarSection } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { logout } from '@/lib/auth';
+import { apiGet } from '@/lib/api';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -87,10 +88,18 @@ const superAdminNavigation: SidebarSection[] = [
 export function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
+    const verifyAuth = async () => {
+      const res = await apiGet('/auth/me');
+      if (!res.success) {
+        window.location.replace('/login');
+        return;
+      }
+    };
+
+    verifyAuth();
+
     // Get user from localStorage
     const userData = localStorage.getItem('user');
     if (userData) {
@@ -108,14 +117,23 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
 
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    // Handle bfcache restore (back button after logout)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        verifyAuth();
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-    router.push('/login');
+    logout();
   };
 
   // Get navigation based on role

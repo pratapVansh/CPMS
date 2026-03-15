@@ -31,8 +31,15 @@ export function middleware(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // For page routes, we'll let client-side handle it
-    // since tokens are stored in localStorage
+    // Redirect protected page routes to login
+    if (
+      pathname.startsWith(studentRoutes) ||
+      pathname.startsWith(adminRoutes) ||
+      pathname.startsWith(superAdminRoutes)
+    ) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
     return NextResponse.next();
   }
 

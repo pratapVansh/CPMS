@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as adminController from '../controllers/admin.controller';
 import * as bulkCommController from '../controllers/bulk-communication.controller';
 import { requireAuth, requireAdmin } from '../middleware/auth.middleware';
+import { campaignSendLimiter, heavyReadLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -26,8 +27,8 @@ router.patch('/students/:id/verify', adminController.verifyStudent);
 router.patch('/students/:id/reject', adminController.rejectStudent);
 
 // Stats
-router.get('/stats', adminController.getStats);
-router.get('/reports', adminController.getReports);
+router.get('/stats', heavyReadLimiter, adminController.getStats);
+router.get('/reports', heavyReadLimiter, adminController.getReports);
 
 // Notices
 router.post('/notices', adminController.createNotice);
@@ -44,7 +45,7 @@ router.get('/campaigns/:campaignId', bulkCommController.getCampaignDetails);
 router.get('/campaigns/:campaignId/stats', bulkCommController.getCampaignStats);
 
 // Send Campaign
-router.post('/campaigns/:campaignId/send', bulkCommController.sendCampaign);
+router.post('/campaigns/:campaignId/send', campaignSendLimiter, bulkCommController.sendCampaign);
 
 // Preview & Validation
 router.post('/drives/:driveId/preview-email', bulkCommController.previewEmail);

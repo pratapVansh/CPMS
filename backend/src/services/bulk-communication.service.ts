@@ -6,10 +6,9 @@
  */
 
 import { prisma } from '../config/db';
-import { sendEmail, sendBulkEmails } from './email.service';
-import { 
+import {
   ApplicationStatus,
-  Prisma 
+  Prisma
 } from '@prisma/client';
 import { addEmailJob } from '../queues/email.queue';
 
@@ -516,6 +515,17 @@ export async function sendCampaign(
     let totalFailed = 0;
     const errors: string[] = [];
 
+    // Fetch company data once — shared across all blocks and recipients
+    const companyData = await prisma.company.findUnique({
+      where: { id: campaign.driveId },
+      select: { name: true, selectionRounds: true },
+    });
+    if (!companyData) throw new Error('Drive not found');
+
+    const currentDate = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'long', year: 'numeric',
+    });
+
     // Process each message block
     for (const block of campaign.messageBlocks) {
       try {
@@ -530,20 +540,37 @@ export async function sendCampaign(
           `[BULK-COMM] Processing block ${block.blockOrder}: ${recipients.length} recipients`
         );
 
-        // Send emails to all recipients
+        // Batch-fetch all student data (1 query per block instead of N queries)
+        const studentIds = recipients.map((r) => r.studentId);
+        const students = await prisma.user.findMany({
+          where: { id: { in: studentIds } },
+          select: { id: true, name: true, email: true, branch: true, cgpa: true },
+        });
+        const studentMap = new Map(students.map((s) => [s.id, s]));
+
+        let blockQueued = 0;
+        let blockFailed = 0;
+
+        // Enqueue email jobs for all recipients (non-blocking)
         for (const recipient of recipients) {
           try {
-            // Resolve template variables
-            const variables = await resolveTemplateVariables(
-              recipient.studentId,
-              campaign.driveId
-            );
+            const student = studentMap.get(recipient.studentId);
+            if (!student) throw new Error(`Student not found: ${recipient.studentId}`);
 
-            // Interpolate subject and body
+            const variables: TemplatVariable = {
+              student_name: student.name,
+              student_email: student.email,
+              student_branch: student.branch || 'N/A',
+              student_cgpa: student.cgpa?.toFixed(2) || 'N/A',
+              company_name: companyData.name,
+              round_name: companyData.selectionRounds || 'Selection Process',
+              date: currentDate,
+            };
+
             const subject = interpolateTemplate(block.subject, variables);
             const body = interpolateTemplate(block.body, variables);
 
-            // Create message log
+            // Create message log entry (PENDING — worker will update on delivery)
             const messageLog = await prisma.messageLog.create({
               data: {
                 campaignId: campaign.id,
@@ -556,57 +583,33 @@ export async function sendCampaign(
               },
             });
 
-            // Send email with retry
-            const result = await sendEmail({
-              to: recipient.email,
-              subject,
-              html: body,
+            // Enqueue job — worker handles actual SMTP delivery and log updates
+            await addEmailJob({
+              userId: recipient.studentId,
+              eventType: 'CAMPAIGN_EMAIL',
+              data: {},
+              messageLogId: messageLog.id,
+              directEmail: { to: recipient.email, subject, html: body },
+              priority: 3,
             });
 
-            // Update message log
-            if (result.success) {
-              await prisma.messageLog.update({
-                where: { id: messageLog.id },
-                data: {
-                  deliveryStatus: 'SENT',
-                  sentAt: new Date(),
-                  messageId: result.messageId,
-                  attempts: 1,
-                },
-              });
-              totalSent++;
-            } else {
-              await prisma.messageLog.update({
-                where: { id: messageLog.id },
-                data: {
-                  deliveryStatus: 'FAILED',
-                  error: result.error,
-                  attempts: 1,
-                },
-              });
-              totalFailed++;
-              errors.push(`Failed to send to ${recipient.email}: ${result.error}`);
-            }
-
-            // Add delay to avoid rate limiting (1 second between emails)
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            blockQueued++;
+            totalSent++;
           } catch (recipientError: any) {
             console.error(
-              `[BULK-COMM] Error sending to ${recipient.email}:`,
+              `[BULK-COMM] Error queuing email to ${recipient.email}:`,
               recipientError
             );
+            blockFailed++;
             totalFailed++;
-            errors.push(`Error with ${recipient.email}: ${recipientError.message}`);
+            errors.push(`Failed to queue ${recipient.email}: ${recipientError.message}`);
           }
         }
 
         // Update block stats
         await prisma.messageBlock.update({
           where: { id: block.id },
-          data: {
-            sentCount: recipients.length - totalFailed,
-            failedCount: totalFailed,
-          },
+          data: { sentCount: blockQueued, failedCount: blockFailed },
         });
       } catch (blockError: any) {
         console.error(`[BULK-COMM] Error processing block ${block.id}:`, blockError);
