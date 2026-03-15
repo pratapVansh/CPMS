@@ -121,7 +121,7 @@ export async function uploadDocument(
 export async function deleteDocument(publicId: string): Promise<void> {
   try {
     const result = await cloudinary.uploader.destroy(publicId, {
-      resource_type: 'raw',
+      resource_type: 'image',
     });
 
     if (result.result !== 'ok' && result.result !== 'not found') {
@@ -139,17 +139,19 @@ export async function deleteDocument(publicId: string): Promise<void> {
  * @param publicId - The public_id of the file
  * @returns URL for inline preview
  */
-export function generatePreviewUrl(publicId: string): string {
-  // For raw files, generate the base URL and add fl_attachment query parameter
-  const baseUrl = cloudinary.url(publicId, {
+export function generatePreviewUrl(publicId: string, storedSecureUrl?: string): string {
+  // If we have the stored URL from upload (which includes Cloudinary's version number),
+  // use it directly — this ensures the browser fetches the latest file after a replace.
+  // Otherwise fall back to building a URL from publicId (no version = may be stale in browser cache).
+  const baseUrl = storedSecureUrl ?? cloudinary.url(publicId, {
     resource_type: 'image',
     secure: true,
     type: 'upload',
   });
-  
-  // Add fl_attachment=false to display inline in browser
+
+  // fl_attachment=false tells Cloudinary to serve inline (display in browser, not force-download)
   const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}fl_attachment=false`;
-  
+
   console.log(`🔗 Generated preview URL for ${publicId}`);
   console.log(`   URL: ${url}`);
   return url;

@@ -259,9 +259,17 @@ export async function getResume(userId: string) {
 
 // Helper to invalidate cache when companies are updated
 export async function invalidateEligibleCompaniesCache() {
-  const keys = await redis.keys(`${ELIGIBLE_COMPANIES_CACHE_PREFIX}*`);
-  if (keys.length > 0) {
-    await redis.del(...keys);
+  const pattern = `${ELIGIBLE_COMPANIES_CACHE_PREFIX}*`;
+  const keysToDelete: string[] = [];
+  let cursor = '0';
+  // SCAN is non-blocking unlike KEYS — safe to use on large keyspaces
+  do {
+    const [nextCursor, found] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+    cursor = nextCursor;
+    keysToDelete.push(...found);
+  } while (cursor !== '0');
+  if (keysToDelete.length > 0) {
+    await redis.del(...keysToDelete);
   }
 }
 

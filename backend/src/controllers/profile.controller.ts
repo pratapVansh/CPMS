@@ -51,10 +51,10 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
 
   // Generate preview URLs for documents if they exist
   const resumePreviewUrl = student.resumePublicId
-    ? cloudinaryService.generatePreviewUrl(student.resumePublicId)
+    ? cloudinaryService.generatePreviewUrl(student.resumePublicId, student.resumeUrl ?? undefined)
     : null;
   const marksheetPreviewUrl = student.marksheetPublicId
-    ? cloudinaryService.generatePreviewUrl(student.marksheetPublicId)
+    ? cloudinaryService.generatePreviewUrl(student.marksheetPublicId, student.marksheetUrl ?? undefined)
     : null;
 
   res.json({
@@ -212,8 +212,8 @@ export async function uploadResume(req: Request, res: Response): Promise<void> {
     await cloudinaryService.deleteDocument(currentUser.resumePublicId);
   }
 
-  // Generate preview URL for immediate use
-  const previewUrl = cloudinaryService.generatePreviewUrl(uploadResult.publicId);
+  // Generate preview URL — pass secureUrl so browser gets versioned URL (busts cache after replace)
+  const previewUrl = cloudinaryService.generatePreviewUrl(uploadResult.publicId, uploadResult.secureUrl);
 
   res.json({
     success: true,
@@ -288,8 +288,8 @@ export async function uploadMarksheet(req: Request, res: Response): Promise<void
     await cloudinaryService.deleteDocument(currentUser.marksheetPublicId);
   }
 
-  // Generate preview URL for immediate use
-  const previewUrl = cloudinaryService.generatePreviewUrl(uploadResult.publicId);
+  // Generate preview URL — pass secureUrl so browser gets versioned URL (busts cache after replace)
+  const previewUrl = cloudinaryService.generatePreviewUrl(uploadResult.publicId, uploadResult.secureUrl);
 
   res.json({
     success: true,
@@ -394,7 +394,9 @@ export async function getDocumentPreviewUrl(req: Request, res: Response): Promis
     where: { id: req.user.userId },
     select: {
       resumePublicId: true,
+      resumeUrl: true,
       marksheetPublicId: true,
+      marksheetUrl: true,
     },
   });
 
@@ -403,12 +405,13 @@ export async function getDocumentPreviewUrl(req: Request, res: Response): Promis
   }
 
   const publicId = type === 'resume' ? user.resumePublicId : user.marksheetPublicId;
+  const storedUrl = type === 'resume' ? user.resumeUrl : user.marksheetUrl;
 
   if (!publicId) {
     throw AppError.notFound(`No ${type} found`, 'DOCUMENT_NOT_FOUND');
   }
 
-  const previewUrl = cloudinaryService.generatePreviewUrl(publicId);
+  const previewUrl = cloudinaryService.generatePreviewUrl(publicId, storedUrl ?? undefined);
 
   res.json({
     success: true,

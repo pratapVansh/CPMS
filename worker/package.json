@@ -2,20 +2,27 @@
   "name": "cpms-worker",
   "version": "1.0.0",
   "private": true,
-  "main": "dist/jobs/email.worker.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/jobs/email.worker.js"
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
     "bullmq": "^5.1.0",
+    "dotenv": "^16.4.1",
     "ioredis": "^5.3.2",
-    "dotenv": "^16.4.1"
+    "nodemailer": "^8.0.0"
   },
   "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/nodemailer": "^7.0.9",
     "prisma": "^5.10.0",
-    "typescript": "^5.3.3",
-    "@types/node": "^20.11.5"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

@@ -6,19 +6,21 @@ import {
   handleMulterError,
   validatePdfContent,
 } from '../middleware/upload.middleware';
+import { authLimiter, refreshLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // Public routes
 router.post(
   '/register',
+  authLimiter,
   uploadDocuments,
   handleMulterError,
   validatePdfContent,
   authController.register
 );
-router.post('/login', authController.login);
-router.post('/refresh', authController.refresh);
+router.post('/login', authLimiter, authController.login);
+router.post('/refresh', refreshLimiter, authController.refresh);
 router.post('/logout', authController.logout);
 
 // Protected routes

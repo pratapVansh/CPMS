@@ -382,32 +382,30 @@ export async function getReportsStats() {
     },
   });
 
-  // For each branch, get placed students count
-  const branchStats = await Promise.all(
-    studentsByBranch.map(async (branchData) => {
-      const placedInBranch = await prisma.application.findMany({
-        where: {
-          status: ApplicationStatus.SELECTED,
-          student: {
-            branch: branchData.branch,
-          },
-        },
-        select: { studentId: true },
-        distinct: ['studentId'],
-      });
+  // Fetch all placed students with their branch in one query (replaces N per-branch queries)
+  const placedApplications = await prisma.application.findMany({
+    where: { status: ApplicationStatus.SELECTED },
+    select: {
+      studentId: true,
+      student: { select: { branch: true } },
+    },
+    distinct: ['studentId'],
+  });
 
-      const total = branchData._count.id;
-      const placed = placedInBranch.length;
-      const rate = total > 0 ? (placed / total) * 100 : 0;
+  // Aggregate placed count per branch in memory
+  const placedPerBranch = new Map<string, number>();
+  for (const app of placedApplications) {
+    const branch = app.student.branch ?? 'Unknown';
+    placedPerBranch.set(branch, (placedPerBranch.get(branch) ?? 0) + 1);
+  }
 
-      return {
-        branch: branchData.branch || 'Unknown',
-        total,
-        placed,
-        rate,
-      };
-    })
-  );
+  const branchStats = studentsByBranch.map((branchData) => {
+    const branch = branchData.branch ?? 'Unknown';
+    const total = branchData._count.id;
+    const placed = placedPerBranch.get(branch) ?? 0;
+    const rate = total > 0 ? (placed / total) * 100 : 0;
+    return { branch, total, placed, rate };
+  });
 
   // Get top companies by applications
   const topCompanies = await prisma.company.findMany({

@@ -8,9 +8,24 @@
 import nodemailer from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import dns from 'dns';
+import crypto from 'crypto';
 import { promisify } from 'util';
 import { prisma } from '../config/db';
 import { EmailTemplate } from '../templates/emailTemplates';
+
+const ENCRYPTION_KEY = process.env.SETTINGS_ENCRYPTION_KEY || 'cpms-default-key-change-in-production-32';
+
+function decryptPassword(text: string): string {
+  try {
+    const [ivHex, encryptedHex] = text.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const encryptedText = Buffer.from(encryptedHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY.slice(0, 32)), iv);
+    return Buffer.concat([decipher.update(encryptedText), decipher.final()]).toString();
+  } catch {
+    return text; // not encrypted — return as-is
+  }
+}
 
 export interface EmailOptions {
   to: string | string[];
@@ -42,7 +57,7 @@ async function getSMTPSettings() {
     secure: settings.smtpSecure ?? false, // false for 587 (STARTTLS), true for 465 (SSL)
     auth: {
       user: settings.smtpUser,
-      pass: settings.smtpPassword || '',
+      pass: settings.smtpPassword ? decryptPassword(settings.smtpPassword) : '',
     },
     from: settings.emailFrom || settings.smtpUser,
     fromName: settings.emailFromName || 'Placement Cell',
