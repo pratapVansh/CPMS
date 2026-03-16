@@ -215,7 +215,7 @@ export async function getAllStudents(req: Request, res: Response): Promise<void>
   const skip = (page - 1) * limit;
 
   // Extract filter parameters
-  const { search, branch, minCgpa, year } = req.query;
+  const { search, branch, minCgpa, maxCgpa, year } = req.query;
 
   // Build where clause with filters
   const where: any = { role: 'STUDENT' };
@@ -234,12 +234,18 @@ export async function getAllStudents(req: Request, res: Response): Promise<void>
     where.branch = branch;
   }
 
-  // Filter by minimum CGPA
+  // Filter by CGPA range
+  const cgpaFilter: { gte?: number; lte?: number } = {};
   if (minCgpa && typeof minCgpa === 'string') {
-    const cgpaValue = parseFloat(minCgpa);
-    if (!isNaN(cgpaValue)) {
-      where.cgpa = { gte: cgpaValue };
-    }
+    const val = parseFloat(minCgpa);
+    if (!isNaN(val)) cgpaFilter.gte = val;
+  }
+  if (maxCgpa && typeof maxCgpa === 'string') {
+    const val = parseFloat(maxCgpa);
+    if (!isNaN(val)) cgpaFilter.lte = val;
+  }
+  if (Object.keys(cgpaFilter).length > 0) {
+    where.cgpa = cgpaFilter;
   }
 
   // Filter by current year

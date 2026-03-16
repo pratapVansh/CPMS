@@ -27,11 +27,13 @@ import {
 const BRANCHES = [
   { value: '', label: 'All Branches' },
   { value: 'Computer Science', label: 'Computer Science' },
+  { value: 'Information Technology', label: 'Information Technology' },
+  { value: 'Computer Science and Design', label: 'Computer Science and Design' },
+  { value: 'Mathematics and Computing', label: 'Mathematics and Computing' },
   { value: 'Petroleum Engineering', label: 'Petroleum Engineering' },
   { value: 'Chemical Engineering', label: 'Chemical Engineering' },
   { value: 'Mechanical Engineering', label: 'Mechanical Engineering' },
   { value: 'Electrical Engineering', label: 'Electrical Engineering' },
-  { value: 'Civil Engineering', label: 'Civil Engineering' },
 ];
 
 const CPI_FILTERS = [
@@ -40,6 +42,7 @@ const CPI_FILTERS = [
   { value: '8', label: '≥ 8.0' },
   { value: '7', label: '≥ 7.0' },
   { value: '6', label: '≥ 6.0' },
+  { value: 'max:6', label: '≤ 6.0' },
 ];
 
 const YEAR_FILTERS = [
@@ -123,7 +126,13 @@ export default function StudentsPage() {
     });
     if (activeSearch) params.append('search', activeSearch);
     if (branchFilter) params.append('branch', branchFilter);
-    if (cpiFilter) params.append('minCgpa', cpiFilter);
+    if (cpiFilter) {
+      if (cpiFilter.startsWith('max:')) {
+        params.append('maxCgpa', cpiFilter.slice(4));
+      } else {
+        params.append('minCgpa', cpiFilter);
+      }
+    }
     if (yearFilter) params.append('year', yearFilter);
 
     const response = await apiGet<{ students: Student[]; pagination: PaginationInfo }>(
