@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getUser, User } from '@/lib/auth';
 import { apiGet } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { exportToCSV } from '@/lib/export';
 import { Search, ChevronLeft, ChevronRight, Download, FileCheck, FileX, Filter, Users, CheckCircle, Clock, UserCheck } from 'lucide-react';
 import {
@@ -83,6 +84,7 @@ interface PaginationInfo {
 }
 
 export default function StudentsPage() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [students, setStudents] = useState<Student[]>([]);

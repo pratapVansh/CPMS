@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUser, User } from '@/lib/auth';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { Plus, Shield, Trash2 } from 'lucide-react';
 import {
   InstitutionalNavbar,
@@ -33,6 +34,7 @@ interface Admin {
 }
 
 export default function AdminsPage() {
+  usePageShowGuard('SUPER_ADMIN');
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [admins, setAdmins] = useState<Admin[]>([]);

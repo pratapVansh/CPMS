@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUser, User } from '@/lib/auth';
 import { apiGet, apiPatch, apiPost } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { Mail, CheckCircle, AlertCircle, Building2, GraduationCap, Building, Bell, Shield, Palette } from 'lucide-react';
 import {
   InstitutionalNavbar,
@@ -63,6 +64,7 @@ interface AllSettings {
 }
 
 export default function SettingsPage() {
+  usePageShowGuard('SUPER_ADMIN');
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);

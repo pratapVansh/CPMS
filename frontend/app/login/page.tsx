@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { GraduationCap, AlertCircle } from 'lucide-react';
-import { login } from '@/lib/auth';
+import { login, getAccessToken, getUser } from '@/lib/auth';
 import { institution } from '@/lib/design-system';
 import { Card, Button, Input, FormGroup, AppFooter } from '@/components/common';
 
@@ -16,6 +16,31 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const redirectIfAuthenticated = () => {
+      const token = getAccessToken();
+      const user = getUser();
+      if (token && user) {
+        if (user.role === 'SUPER_ADMIN') {
+          router.replace('/superadmin');
+        } else if (user.role === 'ADMIN') {
+          router.replace('/admin/dashboard');
+        } else {
+          router.replace('/student/dashboard');
+        }
+      }
+    };
+
+    redirectIfAuthenticated();
+
+    // Also fires when page is restored from bfcache (back/forward navigation)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) redirectIfAuthenticated();
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

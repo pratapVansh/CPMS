@@ -221,7 +221,8 @@ export default function StudentProfilePage() {
 
   const viewDocument = (url: string | null) => {
     if (url) {
-      window.open(url, '_blank');
+      const separator = url.includes('?') ? '&' : '?';
+      window.open(`${url}${separator}t=${Date.now()}`, '_blank');
     }
   };
 

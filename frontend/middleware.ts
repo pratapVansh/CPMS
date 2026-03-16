@@ -9,20 +9,38 @@ const studentRoutes = '/student';
 const adminRoutes = '/admin';
 const superAdminRoutes = '/superadmin';
 
+// Auth routes that logged-in users should not be able to access
+const authRoutes = ['/login', '/register'];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes
+  const token = request.cookies.get('accessToken')?.value;
+
+  // If logged-in user visits an auth route, redirect to their dashboard
+  if (authRoutes.includes(pathname) && token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(Buffer.from(base64, 'base64').toString());
+      const role = payload.role;
+
+      if (role === 'SUPER_ADMIN') {
+        return NextResponse.redirect(new URL('/superadmin', request.url));
+      } else if (role === 'ADMIN') {
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+      } else {
+        return NextResponse.redirect(new URL('/student/dashboard', request.url));
+      }
+    } catch {
+      // Invalid token — let them through to login/register
+    }
+  }
+
+  // Allow all public routes
   if (publicRoutes.includes(pathname)) {
     return NextResponse.next();
   }
-
-  // Check for access token in cookie (set by client) or Authorization header
-  // Note: For client-side auth, we rely on client-side checks
-  // This middleware handles basic route protection
-
-  // Get token from cookie if available
-  const token = request.cookies.get('accessToken')?.value;
 
   // If no token and trying to access protected route, redirect to login
   if (!token) {

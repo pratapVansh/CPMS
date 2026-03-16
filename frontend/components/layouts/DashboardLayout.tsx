@@ -90,6 +90,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
+<<<<<<< HEAD
     const verifyAuth = async () => {
       const res = await apiGet('/auth/me');
       if (!res.success) {
@@ -103,8 +104,27 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
     // Get user from localStorage
     const userData = localStorage.getItem('user');
     if (userData) {
+=======
+    const checkAuth = () => {
+      const token = localStorage.getItem('accessToken');
+      const userData = localStorage.getItem('user');
+
+      if (!token || !userData) {
+        router.replace('/login');
+        return;
+      }
+
+>>>>>>> 1845d15 (fixed  updation of document at admina and student panel)
       setUser(JSON.parse(userData));
-    }
+    };
+
+    checkAuth();
+
+    // Fires when page is restored from bfcache (back/forward navigation)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) checkAuth();
+    };
+    window.addEventListener('pageshow', handlePageShow);
 
     // Handle responsive sidebar
     const handleResize = () => {
@@ -117,6 +137,7 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
 
     handleResize();
     window.addEventListener('resize', handleResize);
+<<<<<<< HEAD
 
     // Handle bfcache restore (back button after logout)
     const handlePageShow = (e: PageTransitionEvent) => {
@@ -131,6 +152,13 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
       window.removeEventListener('pageshow', handlePageShow);
     };
   }, []);
+=======
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [router]);
+>>>>>>> 1845d15 (fixed  updation of document at admina and student panel)
 
   const handleLogout = () => {
     logout();

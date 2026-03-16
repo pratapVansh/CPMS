@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getUser, User } from '@/lib/auth';
 import { apiGet, apiPatch } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { ArrowLeft, Eye, FileText } from 'lucide-react';
 import {
   InstitutionalNavbar,
@@ -53,6 +54,7 @@ interface StudentProfile {
 }
 
 export default function StudentDetailPage() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const params = useParams();
   const studentId = params.id as string;
@@ -105,7 +107,8 @@ export default function StudentDetailPage() {
 
   const viewDocument = (url: string | null) => {
     if (url) {
-      window.open(url, '_blank');
+      const separator = url.includes('?') ? '&' : '?';
+      window.open(`${url}${separator}t=${Date.now()}`, '_blank');
     }
   };
 

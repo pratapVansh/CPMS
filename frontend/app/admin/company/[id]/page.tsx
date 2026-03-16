@@ -5,7 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getUser, User } from '@/lib/auth';
 import { apiGet, apiPut } from '@/lib/api';
-import { 
+import { usePageShowGuard } from '@/lib/hooks';
+import {
   ArrowLeft, 
   Building2, 
   Briefcase, 
@@ -85,6 +86,7 @@ interface Company {
 }
 
 export default function CompanyDetailPage() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;

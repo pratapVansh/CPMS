@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUser, User } from '@/lib/auth';
 import { apiGet } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { Clock, Activity } from 'lucide-react';
 import {
   InstitutionalNavbar,
@@ -29,6 +30,7 @@ interface AuditLog {
 }
 
 export default function AuditLogsPage() {
+  usePageShowGuard('SUPER_ADMIN');
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
