@@ -414,6 +414,7 @@ export default function BulkMessageModal({
                       <code className="text-blue-700">{'{{date}}'}</code>
                       <code className="text-blue-700">{'{{student_email}}'}</code>
                       <code className="text-blue-700">{'{{student_branch}}'}</code>
+                      <code className="text-blue-700">{'{{student_cgpa}}'}</code>
                     </div>
                   </div>
                 </div>
