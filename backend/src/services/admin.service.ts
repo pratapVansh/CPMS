@@ -29,6 +29,29 @@ export interface CreateCompanyInput {
   createdBy?: string;
 }
 
+export interface UpdateCompanyInput {
+  name?: string;
+  logoUrl?: string;
+  industry?: string;
+  website?: string;
+  description?: string;
+  roleOffered?: string;
+  jobDescription?: string;
+  ctc?: string;
+  location?: string;
+  jobType?: string;
+  minCgpa?: number | null;
+  maxBacklogs?: number | null;
+  allowedBranches?: string[];
+  allowedYears?: number[];
+  driveDate?: Date | null;
+  deadline?: Date;
+  selectionRounds?: string;
+  requiredDocuments?: string;
+  specialInstructions?: string;
+  status?: string;
+}
+
 export interface UpdateApplicationStatusInput {
   applicationId: string;
   status: ApplicationStatus;
@@ -121,6 +144,124 @@ export async function createCompany(input: CreateCompanyInput) {
   }
 
   return company;
+}
+
+export async function updateCompany(companyId: string, input: UpdateCompanyInput) {
+  const existing = await prisma.company.findUnique({ where: { id: companyId } });
+  if (!existing) {
+    throw AppError.notFound('Company not found', 'COMPANY_NOT_FOUND');
+  }
+
+  const updated = await prisma.company.update({
+    where: { id: companyId },
+    data: {
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.logoUrl !== undefined && { logoUrl: input.logoUrl }),
+      ...(input.industry !== undefined && { industry: input.industry }),
+      ...(input.website !== undefined && { website: input.website }),
+      ...(input.description !== undefined && { description: input.description }),
+      ...(input.roleOffered !== undefined && { roleOffered: input.roleOffered }),
+      ...(input.jobDescription !== undefined && { jobDescription: input.jobDescription }),
+      ...(input.ctc !== undefined && { ctc: input.ctc }),
+      ...(input.location !== undefined && { location: input.location }),
+      ...(input.jobType !== undefined && { jobType: input.jobType }),
+      ...('minCgpa' in input && { minCgpa: input.minCgpa }),
+      ...('maxBacklogs' in input && { maxBacklogs: input.maxBacklogs }),
+      ...(input.allowedBranches !== undefined && { allowedBranches: input.allowedBranches }),
+      ...(input.allowedYears !== undefined && { allowedYears: input.allowedYears }),
+      ...('driveDate' in input && { driveDate: input.driveDate }),
+      ...(input.deadline !== undefined && { deadline: input.deadline }),
+      ...(input.selectionRounds !== undefined && { selectionRounds: input.selectionRounds }),
+      ...(input.requiredDocuments !== undefined && { requiredDocuments: input.requiredDocuments }),
+      ...(input.specialInstructions !== undefined && { specialInstructions: input.specialInstructions }),
+      ...(input.status !== undefined && { status: input.status }),
+    },
+  });
+
+  // Invalidate cache for all students so they see updated drive info
+  await invalidateEligibleCompaniesCache();
+
+  // Notify students who are newly eligible due to relaxed criteria
+  try {
+    const newlyEligibleIds = await findNewlyEligibleStudents(existing, updated);
+    if (newlyEligibleIds.length > 0) {
+      await notifyNewDrivePublished(companyId, newlyEligibleIds);
+    }
+  } catch (error) {
+    console.error('Failed to send newly eligible notifications:', error);
+  }
+
+  return updated;
+}
+
+async function findNewlyEligibleStudents(
+  existing: { minCgpa: number | null; allowedBranches: string[] },
+  updated: { minCgpa: number | null; allowedBranches: string[] }
+): Promise<string[]> {
+  const ids: string[] = [];
+
+  // --- Case 1: minCgpa was lowered or removed ---
+  const cgpaRelaxed =
+    existing.minCgpa !== null &&
+    (updated.minCgpa === null || updated.minCgpa < existing.minCgpa);
+
+  if (cgpaRelaxed) {
+    const cgpaFilter =
+      updated.minCgpa !== null
+        ? { not: null as null, gte: updated.minCgpa, lt: existing.minCgpa! }
+        : { not: null as null, lt: existing.minCgpa! };
+
+    const byGgpa = await prisma.user.findMany({
+      where: {
+        role: 'STUDENT',
+        status: 'ACTIVE',
+        cgpa: cgpaFilter,
+        ...(updated.allowedBranches.length > 0 && {
+          branch: { in: updated.allowedBranches },
+        }),
+      },
+      select: { id: true },
+    });
+    ids.push(...byGgpa.map((s) => s.id));
+  }
+
+  // --- Case 2: allowedBranches was expanded ---
+  if (existing.allowedBranches.length > 0) {
+    const cgpaCondition =
+      updated.minCgpa !== null ? { cgpa: { gte: updated.minCgpa } } : {};
+
+    if (updated.allowedBranches.length === 0) {
+      // Old was restricted, new is all branches → everyone not in old branches is newly eligible
+      const byBranch = await prisma.user.findMany({
+        where: {
+          role: 'STUDENT',
+          status: 'ACTIVE',
+          branch: { notIn: existing.allowedBranches },
+          ...cgpaCondition,
+        },
+        select: { id: true },
+      });
+      ids.push(...byBranch.map((s) => s.id));
+    } else {
+      const addedBranches = updated.allowedBranches.filter(
+        (b) => !existing.allowedBranches.includes(b)
+      );
+      if (addedBranches.length > 0) {
+        const byBranch = await prisma.user.findMany({
+          where: {
+            role: 'STUDENT',
+            status: 'ACTIVE',
+            branch: { in: addedBranches },
+            ...cgpaCondition,
+          },
+          select: { id: true },
+        });
+        ids.push(...byBranch.map((s) => s.id));
+      }
+    }
+  }
+
+  return [...new Set(ids)];
 }
 
 export async function getCompanyApplicants(

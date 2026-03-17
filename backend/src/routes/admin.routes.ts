@@ -13,6 +13,7 @@ router.use(requireAdmin);
 // Companies
 router.post('/companies', adminController.createCompany);
 router.get('/companies', adminController.getAllCompanies);
+router.put('/companies/:id', adminController.updateCompany);
 router.get('/companies/:id', adminController.getCompanyApplicants);
 router.get('/companies/:id/applicants', adminController.getCompanyApplicants);
 

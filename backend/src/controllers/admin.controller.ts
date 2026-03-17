@@ -45,6 +45,29 @@ const updateStatusSchema = z.object({
   status: z.nativeEnum(ApplicationStatus),
 });
 
+const updateCompanySchema = z.object({
+  name: z.string().min(2).max(200).optional(),
+  logoUrl: z.string().url().optional().nullable(),
+  industry: z.string().optional().nullable(),
+  website: z.string().url().optional().nullable(),
+  description: z.string().optional().nullable(),
+  roleOffered: z.string().min(2).max(200).optional(),
+  jobDescription: z.string().optional().nullable(),
+  ctc: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  jobType: z.string().optional(),
+  minCgpa: z.number().min(0).max(10).optional().nullable(),
+  maxBacklogs: z.number().min(0).optional().nullable(),
+  allowedBranches: z.array(z.string()).optional(),
+  allowedYears: z.array(z.number()).optional(),
+  driveDate: z.string().transform(date => date ? new Date(date).toISOString() : null).optional().nullable(),
+  deadline: z.string().transform(date => new Date(date).toISOString()).optional(),
+  selectionRounds: z.string().optional().nullable(),
+  requiredDocuments: z.string().optional().nullable(),
+  specialInstructions: z.string().optional().nullable(),
+  status: z.string().optional(),
+});
+
 const paginationSchema = z.object({
   page: z.string().transform(Number).default('1'),
   limit: z.string().transform(Number).default('10'),
@@ -100,6 +123,50 @@ export async function createCompany(req: Request, res: Response): Promise<void> 
       company,
     },
     message: 'Company placement drive created successfully',
+  });
+}
+
+export async function updateCompany(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { id: companyId } = req.params;
+  if (!companyId) {
+    throw AppError.badRequest('Company ID is required', 'MISSING_COMPANY_ID');
+  }
+
+  const validatedData = updateCompanySchema.parse(req.body);
+
+  const company = await adminService.updateCompany(companyId, {
+    ...(validatedData.name !== undefined && { name: validatedData.name }),
+    ...('logoUrl' in validatedData && { logoUrl: validatedData.logoUrl ?? undefined }),
+    ...('industry' in validatedData && { industry: validatedData.industry ?? undefined }),
+    ...('website' in validatedData && { website: validatedData.website ?? undefined }),
+    ...('description' in validatedData && { description: validatedData.description ?? undefined }),
+    ...(validatedData.roleOffered !== undefined && { roleOffered: validatedData.roleOffered }),
+    ...('jobDescription' in validatedData && { jobDescription: validatedData.jobDescription ?? undefined }),
+    ...('ctc' in validatedData && { ctc: validatedData.ctc ?? undefined }),
+    ...('location' in validatedData && { location: validatedData.location ?? undefined }),
+    ...(validatedData.jobType !== undefined && { jobType: validatedData.jobType }),
+    ...('minCgpa' in validatedData && { minCgpa: validatedData.minCgpa }),
+    ...('maxBacklogs' in validatedData && { maxBacklogs: validatedData.maxBacklogs }),
+    ...(validatedData.allowedBranches !== undefined && { allowedBranches: validatedData.allowedBranches }),
+    ...(validatedData.allowedYears !== undefined && { allowedYears: validatedData.allowedYears }),
+    ...('driveDate' in validatedData && validatedData.driveDate !== undefined && {
+      driveDate: validatedData.driveDate ? new Date(validatedData.driveDate) : null,
+    }),
+    ...(validatedData.deadline !== undefined && { deadline: new Date(validatedData.deadline) }),
+    ...('selectionRounds' in validatedData && { selectionRounds: validatedData.selectionRounds ?? undefined }),
+    ...('requiredDocuments' in validatedData && { requiredDocuments: validatedData.requiredDocuments ?? undefined }),
+    ...('specialInstructions' in validatedData && { specialInstructions: validatedData.specialInstructions ?? undefined }),
+    ...(validatedData.status !== undefined && { status: validatedData.status }),
+  });
+
+  res.json({
+    success: true,
+    data: { company },
+    message: 'Placement drive updated successfully',
   });
 }
 
