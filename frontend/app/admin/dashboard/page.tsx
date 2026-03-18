@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getUser, User } from '@/lib/auth';
 import { apiGet } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { Plus, Users, Building2, Briefcase, TrendingUp, FileText, CheckCircle, Star, XCircle } from 'lucide-react';
 import {
   InstitutionalNavbar,
@@ -52,6 +53,7 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);

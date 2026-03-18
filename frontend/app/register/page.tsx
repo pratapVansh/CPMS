@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Cookies from 'js-cookie';
 import { GraduationCap, AlertCircle, Upload, Loader2 } from 'lucide-react';
-import { setAccessToken, saveUser, User } from '@/lib/auth';
+import { setAccessToken, saveUser, getAccessToken, getUser, User } from '@/lib/auth';
 import { institution } from '@/lib/design-system';
 import { Card, Button, Input, Select, FormGroup, FormRow, Checkbox, AppFooter } from '@/components/common';
 
@@ -44,6 +44,26 @@ export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const redirectIfAuthenticated = () => {
+      const token = getAccessToken();
+      const user = getUser();
+      if (token && user) {
+        router.replace('/student/dashboard');
+      }
+    };
+
+    redirectIfAuthenticated();
+
+    // Also fires when page is restored from bfcache (back/forward navigation)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) redirectIfAuthenticated();
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [router]);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',

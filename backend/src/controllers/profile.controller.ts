@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../config/db';
 import { AppError } from '../utils/AppError';
 import * as cloudinaryService from '../services/cloudinary.service';
+import { comparePassword } from '../utils/password';
 
 // Validation schemas
 const updateCpiSchema = z.object({
@@ -12,6 +13,17 @@ const updateCpiSchema = z.object({
 const updateYearSemesterSchema = z.object({
   currentYear: z.number().min(1).max(4).nullable(),
   currentSemester: z.number().min(1).max(8).nullable(),
+});
+
+const updateProfileInfoSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters'),
+  branch: z.string().nullable().optional(),
+  rollNo: z.string().trim().min(1).optional(),
+});
+
+const updateEmailSchema = z.object({
+  newEmail: z.string().email('Invalid email address'),
+  currentPassword: z.string().min(1, 'Current password is required'),
 });
 
 /**
@@ -145,6 +157,100 @@ export async function updateYearSemester(req: Request, res: Response): Promise<v
       currentSemester: updatedStudent.currentSemester,
     },
     message: 'Year and semester updated successfully',
+  });
+}
+
+/**
+ * Update student profile info (name, branch, rollNo set-once)
+ */
+export async function updateProfileInfo(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { name, branch, rollNo } = updateProfileInfoSchema.parse(req.body);
+  const userId = req.user.userId;
+
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { rollNo: true },
+  });
+
+  if (!currentUser) {
+    throw AppError.notFound('User not found', 'USER_NOT_FOUND');
+  }
+
+  // rollNo is set-once: only apply if current value is null and new value provided
+  let rollNoToSet: string | undefined;
+  if (!currentUser.rollNo && rollNo) {
+    // Check uniqueness
+    const existing = await prisma.user.findUnique({ where: { rollNo } });
+    if (existing) {
+      throw AppError.conflict('Roll number is already in use', 'ROLLNO_EXISTS');
+    }
+    rollNoToSet = rollNo;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      name,
+      branch: branch ?? null,
+      ...(rollNoToSet ? { rollNo: rollNoToSet } : {}),
+    },
+    select: { name: true, branch: true, rollNo: true },
+  });
+
+  res.json({
+    success: true,
+    data: { user: updatedUser },
+    message: 'Profile updated successfully',
+  });
+}
+
+/**
+ * Update student email (requires current password confirmation)
+ */
+export async function updateEmail(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw AppError.unauthorized('User not authenticated', 'NOT_AUTHENTICATED');
+  }
+
+  const { newEmail, currentPassword } = updateEmailSchema.parse(req.body);
+  const userId = req.user.userId;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, password: true },
+  });
+
+  if (!user) {
+    throw AppError.notFound('User not found', 'USER_NOT_FOUND');
+  }
+
+  const passwordMatch = await comparePassword(currentPassword, user.password);
+  if (!passwordMatch) {
+    throw AppError.unauthorized('Invalid password', 'INVALID_PASSWORD');
+  }
+
+  if (newEmail === user.email) {
+    throw AppError.badRequest('No change detected', 'SAME_EMAIL');
+  }
+
+  const emailTaken = await prisma.user.findUnique({ where: { email: newEmail } });
+  if (emailTaken) {
+    throw AppError.conflict('Email already in use', 'EMAIL_EXISTS');
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { email: newEmail },
+  });
+
+  res.json({
+    success: true,
+    data: { email: newEmail },
+    message: 'Email updated successfully',
   });
 }
 

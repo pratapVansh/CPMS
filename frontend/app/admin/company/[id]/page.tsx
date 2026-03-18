@@ -5,14 +5,15 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getUser, User } from '@/lib/auth';
 import { apiGet, apiPut } from '@/lib/api';
-import { 
-  ArrowLeft, 
-  Building2, 
-  Briefcase, 
-  MapPin, 
-  DollarSign, 
-  Calendar, 
-  Users, 
+import { usePageShowGuard } from '@/lib/hooks';
+import {
+  ArrowLeft,
+  Building2,
+  Briefcase,
+  MapPin,
+  DollarSign,
+  Calendar,
+  Users,
   GraduationCap,
   FileText,
   Clock,
@@ -23,7 +24,8 @@ import {
   Search,
   Filter,
   Mail,
-  Send
+  Send,
+  Pencil
 } from 'lucide-react';
 import {
   InstitutionalNavbar,
@@ -85,6 +87,7 @@ interface Company {
 }
 
 export default function CompanyDetailPage() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
@@ -321,9 +324,19 @@ export default function CompanyDetailPage() {
                         <p className="text-sm text-gray-500 mt-1">{company.industry}</p>
                       )}
                     </div>
-                    <StatusBadge 
-                      status={new Date(company.deadline) < new Date() ? 'closed' : company.status || 'open'} 
-                    />
+                    <div className="flex items-center gap-3">
+                      <StatusBadge
+                        status={new Date(company.deadline) < new Date() ? 'closed' : company.status || 'open'}
+                      />
+                      <LinkButton
+                        href={`/admin/company/${companyId}/edit`}
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<Pencil className="w-4 h-4" />}
+                      >
+                        Edit Drive
+                      </LinkButton>
+                    </div>
                   </div>
                   {company.website && (
                     <a 

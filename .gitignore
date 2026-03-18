@@ -51,3 +51,5 @@ coverage/
 
 # Uploaded files (if stored locally)
 uploads/
+
+/generated/prisma

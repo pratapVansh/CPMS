@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, User } from '@/lib/auth';
+import { getUser, saveUser, User } from '@/lib/auth';
 import { apiGet, apiPatch, apiDelete, apiUploadFile } from '@/lib/api';
 import { Upload, Trash2, Eye, Loader2 } from 'lucide-react';
 import {
@@ -37,6 +37,17 @@ interface StudentProfile {
   marksheetUrl: string | null;
 }
 
+const BRANCHES = [
+  'Computer Science',
+  'Information Technology',
+  'Computer Science and Design',
+  'Mathematics and Computing',
+  'Petroleum Engineering',
+  'Chemical Engineering',
+  'Mechanical Engineering',
+  'Electrical Engineering',
+];
+
 export default function StudentProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -50,6 +61,16 @@ export default function StudentProfilePage() {
   const [currentYear, setCurrentYear] = useState('');
   const [currentSemester, setCurrentSemester] = useState('');
   const [isEditingYearSem, setIsEditingYearSem] = useState(false);
+
+  // Profile info edit
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editBranch, setEditBranch] = useState('');
+  const [editRollNo, setEditRollNo] = useState('');
+  // Email change (independent of the info edit)
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
 
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const marksheetInputRef = useRef<HTMLInputElement>(null);
@@ -72,6 +93,9 @@ export default function StudentProfilePage() {
       setCgpa(response.data.profile.cgpa?.toString() || '');
       setCurrentYear(response.data.profile.currentYear?.toString() || '');
       setCurrentSemester(response.data.profile.currentSemester?.toString() || '');
+      setEditName(response.data.profile.name || '');
+      setEditBranch(response.data.profile.branch || '');
+      setEditRollNo(response.data.profile.rollNo || '');
     }
     setLoading(false);
   };
@@ -124,6 +148,60 @@ export default function StudentProfilePage() {
       fetchProfile();
     } else {
       setError(response.error?.message || 'Failed to update year and semester');
+    }
+  };
+
+  const handleUpdateInfo = async () => {
+    setError('');
+    setSuccess('');
+
+    if (!editName.trim() || editName.trim().length < 2) {
+      setError('Name must be at least 2 characters');
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      name: editName.trim(),
+      branch: editBranch || null,
+    };
+    if (!profile!.rollNo && editRollNo.trim()) {
+      payload.rollNo = editRollNo.trim();
+    }
+
+    const response = await apiPatch('/profile/info', payload);
+    if (response.success) {
+      setSuccess('Profile updated successfully!');
+      setIsEditingInfo(false);
+      fetchProfile();
+      saveUser({ ...user!, name: editName.trim() });
+    } else {
+      setError(response.error?.message || 'Failed to update profile');
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    setError('');
+    setSuccess('');
+
+    if (!newEmail.trim() || !emailPassword) {
+      setError('New email and current password are required');
+      return;
+    }
+
+    const response = await apiPatch('/profile/email', {
+      newEmail: newEmail.trim(),
+      currentPassword: emailPassword,
+    });
+
+    if (response.success && response.data) {
+      setSuccess('Email updated successfully! Use your new email to log in next time.');
+      setIsChangingEmail(false);
+      setNewEmail('');
+      setEmailPassword('');
+      fetchProfile();
+      saveUser({ ...user!, email: newEmail.trim() });
+    } else {
+      setError(response.error?.message || 'Failed to update email');
     }
   };
 
@@ -221,7 +299,8 @@ export default function StudentProfilePage() {
 
   const viewDocument = (url: string | null) => {
     if (url) {
-      window.open(url, '_blank');
+      const separator = url.includes('?') ? '&' : '?';
+      window.open(`${url}${separator}t=${Date.now()}`, '_blank');
     }
   };
 
@@ -254,40 +333,151 @@ export default function StudentProfilePage() {
             <div className="space-y-6">
               {/* Profile Info Card */}
               <Card padding="none">
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                   <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
+                  {!isEditingInfo && (
+                    <button
+                      onClick={() => setIsEditingInfo(true)}
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
                 <div className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm text-gray-500 mb-1">Name</label>
-                      <p className="text-gray-900 font-medium">{profile.name}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-500 mb-1">Email</label>
-                      <p className="text-gray-900">{profile.email}</p>
-                    </div>
-                    {profile.rollNo && (
+                  {isEditingInfo ? (
+                    <div className="space-y-3">
                       <div>
-                        <label className="block text-sm text-gray-500 mb-1">Roll Number</label>
-                        <p className="text-gray-900 font-semibold">{profile.rollNo}</p>
+                        <label className="block text-sm text-gray-700 mb-1">Full Name</label>
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="Enter your full name"
+                        />
                       </div>
-                    )}
-                    <div>
-                      <label className="block text-sm text-gray-500 mb-1">Branch</label>
-                      <p className="text-gray-900">{profile.branch || 'Not set'}</p>
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">Branch</label>
+                        <select
+                          value={editBranch}
+                          onChange={(e) => setEditBranch(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select branch</option>
+                          {BRANCHES.map((b) => (
+                            <option key={b} value={b}>{b}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">Roll Number</label>
+                        {profile.rollNo ? (
+                          <p className="text-gray-900 font-semibold py-2">
+                            {profile.rollNo}{' '}
+                            <span className="text-xs text-gray-500 font-normal">(Cannot be changed once set)</span>
+                          </p>
+                        ) : (
+                          <Input
+                            value={editRollNo}
+                            onChange={(e) => setEditRollNo(e.target.value)}
+                            placeholder="e.g., 21CS001"
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Button onClick={handleUpdateInfo} size="sm">
+                          Save
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsEditingInfo(false);
+                            setEditName(profile.name || '');
+                            setEditBranch(profile.branch || '');
+                            setEditRollNo(profile.rollNo || '');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm text-gray-500 mb-1">Member Since</label>
-                      <p className="text-gray-900">
-                        {new Date(profile.createdAt).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">Name</label>
+                          <p className="text-gray-900 font-medium">{profile.name}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">Email</label>
+                          <p className="text-gray-900">{profile.email}</p>
+                        </div>
+                        {profile.rollNo && (
+                          <div>
+                            <label className="block text-sm text-gray-500 mb-1">Roll Number</label>
+                            <p className="text-gray-900 font-semibold">{profile.rollNo}</p>
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">Branch</label>
+                          <p className="text-gray-900">{profile.branch || 'Not set'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">Member Since</label>
+                          <p className="text-gray-900">
+                            {new Date(profile.createdAt).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      {/* Change Email section */}
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        {isChangingEmail ? (
+                          <div className="space-y-3">
+                            <p className="text-sm font-medium text-gray-700">Change Email Address</p>
+                            <Input
+                              type="email"
+                              value={newEmail}
+                              onChange={(e) => setNewEmail(e.target.value)}
+                              placeholder="New email address"
+                            />
+                            <Input
+                              type="password"
+                              value={emailPassword}
+                              onChange={(e) => setEmailPassword(e.target.value)}
+                              placeholder="Current password to confirm"
+                            />
+                            <div className="flex items-center gap-3">
+                              <Button onClick={handleUpdateEmail} size="sm">
+                                Update Email
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setIsChangingEmail(false);
+                                  setNewEmail('');
+                                  setEmailPassword('');
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setIsChangingEmail(true)}
+                            className="text-blue-600 hover:underline text-sm"
+                          >
+                            Change Email
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </Card>
 

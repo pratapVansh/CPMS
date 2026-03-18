@@ -78,6 +78,7 @@ export async function uploadDocument(
       allowed_formats: ['pdf'],
       unique_filename: false,
       overwrite: true,
+      invalidate: true,
     },
       (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
         if (error) {

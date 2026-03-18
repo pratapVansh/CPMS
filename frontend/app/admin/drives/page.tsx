@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getUser, User } from '@/lib/auth';
 import { apiGet } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { exportToCSV } from '@/lib/export';
 import { Plus, Search, Download, TrendingUp, Users, Building2, Clock } from 'lucide-react';
 import {
@@ -37,6 +38,7 @@ interface Company {
 }
 
 export default function DrivesPage() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);

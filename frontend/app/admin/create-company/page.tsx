@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUser, User } from '@/lib/auth';
 import { apiPost } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import {
   InstitutionalNavbar,
   AppFooter,
@@ -49,6 +50,7 @@ const INDUSTRIES = [
 const JOB_TYPES = ['Full-time', 'Internship', 'Part-time', 'Contract'];
 
 export default function CreateCompanyPage() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);

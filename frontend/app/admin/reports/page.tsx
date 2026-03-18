@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUser, User } from '@/lib/auth';
 import { apiGet } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { exportToCSV } from '@/lib/export';
 import { Download, FileText, Users, Building2, TrendingUp, BarChart3 } from 'lucide-react';
 import {
@@ -47,6 +48,7 @@ interface PlacementStats {
 }
 
 export default function AdminReportsPage() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<PlacementStats | null>(null);

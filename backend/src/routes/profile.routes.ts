@@ -19,6 +19,8 @@ router.use(requireStudent);
 router.get('/', profileController.getProfile);
 router.patch('/cpi', profileController.updateCpi);
 router.patch('/year-semester', profileController.updateYearSemester);
+router.patch('/info', profileController.updateProfileInfo);
+router.patch('/email', profileController.updateEmail);
 
 // Resume upload
 router.post(

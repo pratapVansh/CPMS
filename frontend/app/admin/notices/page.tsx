@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUser, User } from '@/lib/auth';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+import { usePageShowGuard } from '@/lib/hooks';
 import { Plus, Edit2, Trash2, X, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   InstitutionalNavbar,
@@ -42,6 +43,7 @@ interface PaginationInfo {
 }
 
 export default function NoticesPage() {
+  usePageShowGuard(['ADMIN', 'SUPER_ADMIN']);
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
